@@ -47,8 +47,21 @@ public struct Clip: Codable, Identifiable, Equatable {
     public var updatedAt: Date
     /// Needs telling the cloud.
     public var dirty = true
-    /// Deleted here; kept as a tombstone until the cloud has heard.
+    /// Deleted here; kept as a tombstone until the cloud and the hub have heard.
     public var deleted = false
+
+    // The wish hub. Optional, so items saved before pairing existed still load.
+    /// The hub's whole item JSON, so its other fields survive an edit here.
+    public var hubItem: String?
+    public var hubUpdatedAt: String?
+    /// What the hub last heard (Hub.signature). Differs from the current one: send it.
+    public var hubSig: String?
+    /// Screenshot ids in the hub's image store.
+    public var hubImages: [String]?
+    /// 已保存 has been reported.
+    public var hubFulfilled: Bool?
+    /// The cloud copy of a deleted item is gone.
+    public var cloudGone: Bool?
 
     public init(id: String = Clip.newID(), kind: Kind, url: String = "", now: Date = Date()) {
         self.id = id; self.kind = kind; self.url = url; createdAt = now; updatedAt = now
@@ -99,7 +112,15 @@ public struct Paths {
 public struct Secrets: Codable, Equatable {
     public var anthropicKey = ""
     public var cloudPasscode = ""
+    public var hubToken = ""
     public init() {}
+    /// A field added later must not lose what a file from an earlier version holds.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        anthropicKey = try c.decodeIfPresent(String.self, forKey: .anthropicKey) ?? ""
+        cloudPasscode = try c.decodeIfPresent(String.self, forKey: .cloudPasscode) ?? ""
+        hubToken = try c.decodeIfPresent(String.self, forKey: .hubToken) ?? ""
+    }
     public static func load(_ url: URL) -> Secrets {
         (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(Secrets.self, from: $0) } ?? Secrets()
     }

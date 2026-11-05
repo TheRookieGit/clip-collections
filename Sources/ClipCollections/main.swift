@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var settings: NSWindow?
     private var statusMenu: StatusMenu?
     private var keyMonitor: Any?
+    private var hubTimer: Timer?
     private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -52,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self?.model.startCloudLink()
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(20))
-                    await self?.model.sync()
+                    await self?.model.syncAll()
                     self?.model.runQueue()
                 }
             }
@@ -62,7 +63,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         })
         model.startCloudLink()
         model.runQueue()
-        Task { await model.sync() }
+        Task { await model.syncAll() }
+        // New items in the hub reach no long poll here, so it is asked every few minutes, and on coming to the front.
+        hubTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { Task { await self?.model.syncHub() } }
+        }
+        observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { Task { await self?.model.syncHub() } }
+        })
         #if DEBUG
         model.runTestCommands()
         #endif
@@ -88,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc func openSettings() {
         if settings == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 480), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             w.title = "设置"
             w.contentView = NSHostingView(rootView: SettingsView(model: model, ui: SettingsState()))
             w.isReleasedWhenClosed = false

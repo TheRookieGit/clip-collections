@@ -25,7 +25,7 @@ public struct CloudAPI {
     }
 
     /// A screenshot sized for the web page: at most 1800 wide, as JPEG, under the upload limit.
-    public static func webJPEG(_ file: URL) -> Data? {
+    public static func webJPEG(_ file: URL, maxBase64: Int = 7_500_000) -> Data? {
         guard let src = CGImageSourceCreateWithURL(file as CFURL, nil), let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
         for (side, q) in [(1800.0, 0.86), (1500, 0.8), (1200, 0.72), (1000, 0.65)] {
             let s = min(1, side / Double(cg.width), 12000 / Double(cg.height))
@@ -33,7 +33,7 @@ public struct CloudAPI {
             guard let c = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { continue }
             c.interpolationQuality = .high
             c.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
-            if let img = c.makeImage(), let d = ClaudeAPI.jpeg(img, quality: q), d.count * 4 / 3 < 7_500_000 { return d }
+            if let img = c.makeImage(), let d = ClaudeAPI.jpeg(img, quality: q), d.count * 4 / 3 < maxBase64 { return d }
         }
         return nil
     }

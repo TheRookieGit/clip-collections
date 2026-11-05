@@ -243,6 +243,20 @@ struct SettingsView: View {
                 SecureField("口令", text: $model.secrets.cloudPasscode)
                 Text(status).font(.caption).foregroundStyle(.secondary)
             }
+            Section("心愿中枢（新闻分类）") {
+                if model.hubPaired {
+                    Text(hubStatus).font(.caption).foregroundStyle(model.hubError == nil ? Color.secondary : Color.red)
+                    HStack {
+                        Button("立即同步") { Task { await model.syncAll() } }
+                        Button("断开") { model.disconnectHub() }
+                    }
+                } else {
+                    SecureField("同步密码或配对码", text: $model.hubSecret)
+                    Button(model.hubConnecting ? "连接中…" : "连接") { Task { await model.connectHub() } }
+                        .disabled(model.hubSecret.trimmingCharacters(in: .whitespaces).isEmpty || model.hubConnecting)
+                    Text(model.hubError ?? "同步密码只用来配对，不会保存。").font(.caption).foregroundStyle(model.hubError == nil ? Color.secondary : Color.red)
+                }
+            }
             Section("网站登录（可选）") {
                 TextField("网址", text: $ui.site)
                 Button("打开登录窗口") { LoginWindow.open(ui.site) }
@@ -251,7 +265,12 @@ struct SettingsView: View {
             Button("保存设置") { model.saveSecrets() }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 480)
+        .frame(width: 480, height: 640)
+    }
+
+    private var hubStatus: String {
+        if let e = model.hubError { return "出错：\(e)" }
+        return model.lastHubSync.map { "已连接，上次同步：\($0.formatted(date: .omitted, time: .shortened))" } ?? "已连接"
     }
 
     private var status: String {

@@ -27,6 +27,13 @@ final class AppModel {
     var notice: String?
     var cloudError: String?
     var lastCloudSync: Date?
+    var hubError: String?
+    var lastHubSync: Date?
+    var hubSecret = ""
+    var hubConnecting = false
+    @ObservationIgnored private var hubSyncing = false
+    @ObservationIgnored var hubTransport: Hub.Transport = Hub.live
+    var hubPaired: Bool { !secrets.hubToken.isEmpty }
 
     var cloud: CloudAPI { CloudAPI(url: cloudURL.trimmingCharacters(in: .whitespacesAndNewlines), passcode: secrets.cloudPasscode.trimmingCharacters(in: .whitespacesAndNewlines)) }
     var visible: [Clip] { clips.filter { !$0.deleted }.sorted { $0.createdAt > $1.createdAt } }
@@ -42,6 +49,7 @@ final class AppModel {
         capturer = Capturer(readabilityJS: Capturer.bundledReadability() ?? "")
         #if DEBUG
         if let u = ProcessInfo.processInfo.environment["CLIP_TEST_CLOUD"] { cloudURL = u; secrets.cloudPasscode = "test-only" }
+        if let t = ProcessInfo.processInfo.environment["CLIP_TEST_HUB_TOKEN"] { secrets.hubToken = t }
         #endif
         clips = store.all()
         // Interrupted when the app last stopped.
@@ -133,6 +141,10 @@ final class AppModel {
     /// Removes the item and the app's own files. The desktop copy is the user's, and stays.
     func delete(_ id: String) {
         change(id) { $0.deleted = true; $0.status = .saved }
+        purge(id)
+    }
+
+    private func purge(_ id: String) {
         try? FileManager.default.removeItem(at: paths.pdf(id))
         try? FileManager.default.removeItem(at: paths.shotDir(id))
     }
@@ -256,7 +268,7 @@ final class AppModel {
         case .shots: await processShots(c)
         }
         try? FileManager.default.removeItem(at: paths.work.appendingPathComponent(id))
-        await sync()
+        await syncAll()
     }
 
     private func processLink(_ c: Clip) async {
@@ -327,7 +339,11 @@ final class AppModel {
 
     /// Screenshots sent from the web page, fetched through signed links on this project's own host.
     private func fetchShots(_ id: String) async throws {
-        guard let c = clip(id), c.shotFiles.isEmpty, !c.cloudShots.isEmpty else { return }
+        guard let c = clip(id), c.shotFiles.isEmpty else { return }
+        if c.cloudShots.isEmpty {
+            try await fetchHubShots(c)
+            return
+        }
         let urls = try await cloud.call(["action": "shot_urls", "paths": c.cloudShots])["urls"] as? [String: String] ?? [:]
         let dir = paths.shotDir(id)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -361,8 +377,13 @@ final class AppModel {
         pushTimer?.cancel()
         pushTimer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1))
-            if !Task.isCancelled { await self?.sync() }
+            if !Task.isCancelled { await self?.syncAll() }
         }
+    }
+
+    func syncAll() async {
+        await sync()
+        await syncHub()
     }
 
     func sync() async {
@@ -437,12 +458,11 @@ final class AppModel {
     }
 
     private func pushChanges() async throws {
-        let gone = clips.filter { $0.deleted }
+        let gone = clips.filter { $0.deleted && $0.cloudGone != true }.prefix(200)
         if !gone.isEmpty {
-            try await cloud.call(["action": "clips_delete", "ids": gone.prefix(200).map(\.id)])
-            for c in gone.prefix(200) { store.remove(c.id) }
-            let ids = Set(gone.prefix(200).map(\.id))
-            clips.removeAll { ids.contains($0.id) }
+            try await cloud.call(["action": "clips_delete", "ids": gone.map(\.id)])
+            for c in gone { markGone(c.id) }
+            reapTombstones()
         }
         let dirty = clips.filter { $0.dirty && !$0.deleted }.prefix(200)
         guard !dirty.isEmpty else { return }
@@ -453,6 +473,142 @@ final class AppModel {
             clips[i].dirty = false
             store.put(clips[i])
         }
+    }
+
+    private func markGone(_ id: String) {
+        guard let i = clips.firstIndex(where: { $0.id == id }) else { return }
+        clips[i].cloudGone = true
+        store.put(clips[i])
+    }
+
+    /// A deleted item goes for good once every side that has it has heard.
+    private func reapTombstones() {
+        for c in clips where c.deleted {
+            let cloudDone = c.cloudGone == true || !cloud.configured
+            let hubDone = !hubPaired || c.hubSig == Hub.signature(c) || (c.hubSig == nil && c.hubItem == nil)
+            if cloudDone && hubDone {
+                store.remove(c.id)
+                clips.removeAll { $0.id == c.id }
+            }
+        }
+    }
+
+    // MARK: The wish hub
+
+    func connectHub() async {
+        hubConnecting = true
+        defer { hubConnecting = false }
+        do {
+            secrets.hubToken = try await Hub.connect(hubSecret, deviceName: Host.current().localizedName ?? "Mac", transport: hubTransport)
+            hubSecret = ""
+            hubError = nil
+            try secrets.save(paths.secrets)
+            await syncHub()
+        } catch { hubError = error.localizedDescription }
+    }
+
+    func disconnectHub() {
+        secrets.hubToken = ""
+        try? secrets.save(paths.secrets)
+        store.setMeta("hub_cursor", "")
+        hubError = nil
+        lastHubSync = nil
+    }
+
+    /// Takes in what changed in the hub first, then sends what changed here, then reports what is saved.
+    func syncHub() async {
+        guard hubPaired, !hubSyncing else { return }
+        hubSyncing = true
+        defer { hubSyncing = false }
+        do {
+            try await pullHub()
+            try await pushHub()
+            try await reportSaved()
+            reapTombstones()
+            lastHubSync = Date()
+            hubError = nil
+        } catch { hubError = error.localizedDescription }
+    }
+
+    private func pullHub() async throws {
+        let since = store.meta("hub_cursor").flatMap { $0.isEmpty ? nil : $0 }
+        let got = try await Hub.pull(token: secrets.hubToken, since: since, transport: hubTransport)
+        var added = false
+        for item in got.items {
+            guard let id = item["id"] as? String else { continue }
+            let deleted = item["deleted"] as? Bool ?? false
+            if let c = clip(id) {
+                if c.deleted || c.hubUpdatedAt == item["updatedAt"] as? String { continue }
+                if deleted {
+                    change(id) { x in x.deleted = true; x.status = .saved; x.hubSig = nil; Hub.merge(item, into: &x); x.deleted = true }
+                    purge(id)
+                } else {
+                    change(id) { Hub.merge(item, into: &$0) }
+                }
+            } else if !deleted, var c = Hub.clip(from: item) {
+                c.dirty = true
+                clips.append(c)
+                store.put(c)
+                added = true
+            }
+        }
+        if let cursor = got.cursor { store.setMeta("hub_cursor", cursor) }
+        if added { schedulePush(); runQueue() }
+    }
+
+    /// Images first: an item's screenshots must already be there when it lands.
+    private func pushHub() async throws {
+        for c in clips where !c.deleted && c.kind == .shots && (c.hubImages ?? []).isEmpty && !c.shotFiles.isEmpty {
+            var ids: [String] = []
+            for (i, name) in c.shotFiles.enumerated() {
+                guard let jpeg = CloudAPI.webJPEG(paths.shotDir(c.id).appendingPathComponent(name), maxBase64: 3_900_000) else { throw CaptureError("截图压缩失败") }
+                let id = String(format: "%@-%03d", c.id, i)
+                try await Hub.putImage(token: secrets.hubToken, id: id, jpeg: jpeg, transport: hubTransport)
+                ids.append(id)
+            }
+            if let n = clips.firstIndex(where: { $0.id == c.id }) { clips[n].hubImages = ids; store.put(clips[n]) }
+        }
+        let due = clips.filter { $0.hubSig != Hub.signature($0) && !($0.deleted && $0.hubSig == nil && $0.hubItem == nil) }
+        for part in stride(from: 0, to: due.count, by: 100) {
+            let chunk = Array(due[part..<min(part + 100, due.count)])
+            let now = Date()
+            let items = chunk.map { Hub.item(for: $0, now: now) }
+            try await Hub.put(token: secrets.hubToken, items: items, transport: hubTransport)
+            for (c, item) in zip(chunk, items) {
+                guard let i = clips.firstIndex(where: { $0.id == c.id }) else { continue }
+                clips[i].hubUpdatedAt = item["updatedAt"] as? String
+                clips[i].hubSig = Hub.signature(c)
+                if let d = try? JSONSerialization.data(withJSONObject: item) { clips[i].hubItem = String(data: d, encoding: .utf8) }
+                store.put(clips[i])
+            }
+        }
+    }
+
+    private func reportSaved() async throws {
+        let due = clips.filter { !$0.deleted && $0.status == .saved && $0.hasPDF && $0.hubFulfilled != true && $0.hubSig != nil }
+        guard !due.isEmpty else { return }
+        try await Hub.fulfill(token: secrets.hubToken, rows: due.map { Hub.fulfillRow($0) }, transport: hubTransport)
+        for c in due {
+            guard let i = clips.firstIndex(where: { $0.id == c.id }) else { continue }
+            clips[i].hubFulfilled = true
+            store.put(clips[i])
+        }
+    }
+
+    /// Screenshots added on the hub page, read from its image store.
+    private func fetchHubShots(_ c: Clip) async throws {
+        guard let ids = c.hubImages, !ids.isEmpty else { return }
+        guard hubPaired else { throw CaptureError("没有连接心愿中枢，读不到截图") }
+        let dir = paths.shotDir(c.id)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var names: [String] = []
+        for (i, id) in ids.enumerated() {
+            guard let data = try await Hub.image(token: secrets.hubToken, id: id, transport: hubTransport) else { throw CaptureError("中枢里读不到截图，可能还没上传完") }
+            let name = String(format: "%03d.jpg", i)
+            try data.write(to: dir.appendingPathComponent(name))
+            names.append(name)
+        }
+        change(c.id) { $0.shotFiles = names }
     }
 
     /// A long poll while awake: tells the web page the Mac is here, and returns at once when it has asked for something.

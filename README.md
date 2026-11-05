@@ -38,6 +38,15 @@ supabase functions deploy api --no-verify-jwt
 
 然后在 Mac 应用的设置（⌘,）里填同一个口令。
 
+## 接入心愿中枢
+
+在设置里用同步密码或配对码连接后，拾闻和中枢的「新闻」分类双向同步：
+
+- 中枢新增的新闻进入拾闻的队列，拾闻新增的新闻写回中枢，两边用同一个 id。
+- PDF 生成成功后通过 `mc_fulfill_put` 回报，中枢显示「已保存」。状态不写进条目 JSON。
+- 两边同时改同一条时，中枢的改动优先。
+- 需要 my-collections 的迁移 `006_clipcollections.sql`。
+
 ## 第三方代码
 
 `Resources/vendor/Readability-0.6.0.js` 是 Mozilla Readability 0.6.0（Apache-2.0），来自 npm 包 `@mozilla/readability`，未经修改。

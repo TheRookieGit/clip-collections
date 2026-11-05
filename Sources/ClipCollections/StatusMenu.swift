@@ -43,6 +43,9 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         if !model.cloud.configured { info("云端：未设置") }
         else if let e = model.cloudError { info("云端出错：\(e.prefix(40))") }
         else { info("云端：\(model.lastCloudSync.map { "已同步 \($0.formatted(date: .omitted, time: .shortened))" } ?? "尚未同步")") }
+        if !model.hubPaired { info("心愿中枢：未连接") }
+        else if let e = model.hubError { info("心愿中枢出错：\(e.prefix(40))") }
+        else { info("心愿中枢：\(model.lastHubSync.map { "已同步 \($0.formatted(date: .omitted, time: .shortened))" } ?? "尚未同步")") }
         let login = action("开机时自动启动", #selector(toggleLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
