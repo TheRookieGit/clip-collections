@@ -16,7 +16,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
-        item.button?.image = NSImage(systemSymbolName: "paperclip", accessibilityDescription: "拾闻")
+        item.button?.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "拾闻")
         item.button?.toolTip = "拾闻"
         if !UserDefaults.standard.bool(forKey: "loginItemDefaulted") {
             UserDefaults.standard.set(true, forKey: "loginItemDefaulted")

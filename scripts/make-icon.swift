@@ -1,4 +1,4 @@
-// Draws the icon: a paper clip on vermilion.
+// Draws the icon: a folded newspaper page on vermilion.
 //   swift scripts/make-icon.swift <folder>         the Mac app's .iconset, with the margin and corners macOS expects
 //   swift scripts/make-icon.swift --web <folder>   the web page's icons: full bleed, since iOS rounds the corners itself
 import AppKit
@@ -7,32 +7,39 @@ func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
     NSColor(srgbRed: CGFloat(hex >> 16 & 0xff) / 255, green: CGFloat(hex >> 8 & 0xff) / 255, blue: CGFloat(hex & 0xff) / 255, alpha: alpha)
 }
 
-/// A paper clip, drawn as one line from the short inner end round to the long outer end.
-func clip(in tile: NSRect) {
-    let s = tile.width, cx = tile.midX, cy = tile.midY, u = s * 0.082
-    NSGraphicsContext.saveGraphicsState()
-    let t = NSAffineTransform()
-    t.translateX(by: cx, yBy: cy); t.rotate(byDegrees: -38); t.translateX(by: -cx, yBy: -cy)
-    t.concat()
-    let p = NSBezierPath()
-    p.lineWidth = s * 0.052
-    p.lineCapStyle = .round
-    p.lineJoinStyle = .round
-    let outerL = cx - u * 1.5, outerR = cx + u * 1.5, innerL = cx - u * 0.6, innerR = cx + u * 0.6
-    p.move(to: NSPoint(x: innerR, y: cy + u * 2.6))
-    p.line(to: NSPoint(x: innerR, y: cy - u * 3.2))
-    p.appendArc(from: NSPoint(x: innerR, y: cy - u * 4.4), to: NSPoint(x: cx, y: cy - u * 4.4), radius: u * 0.6)
-    p.appendArc(from: NSPoint(x: innerL, y: cy - u * 4.4), to: NSPoint(x: innerL, y: cy - u * 3.2), radius: u * 0.6)
-    p.line(to: NSPoint(x: innerL, y: cy + u * 3.4))
-    p.appendArc(from: NSPoint(x: innerL, y: cy + u * 4.8), to: NSPoint(x: cx + u * 0.3, y: cy + u * 4.8), radius: u * 0.9)
-    p.appendArc(from: NSPoint(x: outerR, y: cy + u * 4.8), to: NSPoint(x: outerR, y: cy + u * 3.4), radius: u * 1.05)
-    p.line(to: NSPoint(x: outerR, y: cy - u * 3.6))
-    p.appendArc(from: NSPoint(x: outerR, y: cy - u * 5.6), to: NSPoint(x: cx, y: cy - u * 5.6), radius: u * 1.5)
-    p.appendArc(from: NSPoint(x: outerL, y: cy - u * 5.6), to: NSPoint(x: outerL, y: cy - u * 3.6), radius: u * 1.5)
-    p.line(to: NSPoint(x: outerL, y: cy + u * 1.8))
-    rgb(0xF7F0E2).setStroke()
-    p.stroke()
-    NSGraphicsContext.restoreGraphicsState()
+func bar(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ c: NSColor) {
+    c.setFill()
+    NSBezierPath(rect: NSRect(x: x, y: y, width: w, height: h)).fill()
+}
+
+/// A newspaper page with one corner folded: a headline in vermilion over two columns of text.
+func newspaper(in tile: NSRect) {
+    let s = tile.width, seal = rgb(0xB23A2A), ink = rgb(0x221E18)
+    let p = NSRect(x: tile.midX - s * 0.28, y: tile.midY - s * 0.35, width: s * 0.56, height: s * 0.7)
+    let fold = s * 0.15
+    let sheet = NSBezierPath()
+    sheet.move(to: NSPoint(x: p.minX, y: p.minY))
+    sheet.line(to: NSPoint(x: p.maxX, y: p.minY))
+    sheet.line(to: NSPoint(x: p.maxX, y: p.maxY - fold))
+    sheet.line(to: NSPoint(x: p.maxX - fold, y: p.maxY))
+    sheet.line(to: NSPoint(x: p.minX, y: p.maxY))
+    sheet.close()
+    rgb(0xF7F0E2).setFill()
+    sheet.fill()
+    let corner = NSBezierPath()
+    corner.move(to: NSPoint(x: p.maxX - fold, y: p.maxY))
+    corner.line(to: NSPoint(x: p.maxX - fold, y: p.maxY - fold))
+    corner.line(to: NSPoint(x: p.maxX, y: p.maxY - fold))
+    corner.close()
+    rgb(0xC9BFAC).setFill()
+    corner.fill()
+    let m = s * 0.07, w = p.width - m * 2, gap = s * 0.04, col = (w - gap) / 2
+    bar(p.minX + m, p.maxY - s * 0.2, w - s * 0.1, s * 0.05, seal)
+    for c in 0..<2 {
+        for i in 0..<4 {
+            bar(p.minX + m + CGFloat(c) * (col + gap), p.minY + m + CGFloat(i) * s * 0.07, i == 0 && c == 1 ? col * 0.6 : col, s * 0.03, ink)
+        }
+    }
 }
 
 func draw(in rect: NSRect, bleed: Bool = false) {
@@ -40,7 +47,7 @@ func draw(in rect: NSRect, bleed: Bool = false) {
     let s = tile.width
     rgb(0xB23A2A).setFill()
     (bleed ? NSBezierPath(rect: tile) : NSBezierPath(roundedRect: tile, xRadius: s * 0.225, yRadius: s * 0.225)).fill()
-    clip(in: tile)
+    newspaper(in: tile)
 }
 
 func write(_ file: String, size: Int, bleed: Bool = false) throws {
