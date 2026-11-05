@@ -1,35 +1,46 @@
-// Draws the icon: a vermilion seal with 拾 in it.
+// Draws the icon: a paper clip on vermilion.
 //   swift scripts/make-icon.swift <folder>         the Mac app's .iconset, with the margin and corners macOS expects
 //   swift scripts/make-icon.swift --web <folder>   the web page's icons: full bleed, since iOS rounds the corners itself
 import AppKit
-import CoreText
 
 func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
     NSColor(srgbRed: CGFloat(hex >> 16 & 0xff) / 255, green: CGFloat(hex >> 8 & 0xff) / 255, blue: CGFloat(hex & 0xff) / 255, alpha: alpha)
 }
 
-func glyph(_ c: String, size: CGFloat, color: NSColor, center: NSPoint) {
-    // Centred on the ink of the character, not on its line box.
-    let font = NSFont(name: "STSongti-SC-Black", size: size) ?? .boldSystemFont(ofSize: size)
-    let line = CTLineCreateWithAttributedString(NSAttributedString(string: c, attributes: [.font: font, .foregroundColor: color]))
-    let box = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
-    let ctx = NSGraphicsContext.current!.cgContext
-    ctx.textPosition = CGPoint(x: center.x - box.midX, y: center.y - box.midY)
-    CTLineDraw(line, ctx)
+/// A paper clip, drawn as one line from the short inner end round to the long outer end.
+func clip(in tile: NSRect) {
+    let s = tile.width, cx = tile.midX, cy = tile.midY, u = s * 0.082
+    NSGraphicsContext.saveGraphicsState()
+    let t = NSAffineTransform()
+    t.translateX(by: cx, yBy: cy); t.rotate(byDegrees: -38); t.translateX(by: -cx, yBy: -cy)
+    t.concat()
+    let p = NSBezierPath()
+    p.lineWidth = s * 0.052
+    p.lineCapStyle = .round
+    p.lineJoinStyle = .round
+    let outerL = cx - u * 1.5, outerR = cx + u * 1.5, innerL = cx - u * 0.6, innerR = cx + u * 0.6
+    p.move(to: NSPoint(x: innerR, y: cy + u * 2.6))
+    p.line(to: NSPoint(x: innerR, y: cy - u * 3.2))
+    p.appendArc(from: NSPoint(x: innerR, y: cy - u * 4.4), to: NSPoint(x: cx, y: cy - u * 4.4), radius: u * 0.6)
+    p.appendArc(from: NSPoint(x: innerL, y: cy - u * 4.4), to: NSPoint(x: innerL, y: cy - u * 3.2), radius: u * 0.6)
+    p.line(to: NSPoint(x: innerL, y: cy + u * 3.4))
+    p.appendArc(from: NSPoint(x: innerL, y: cy + u * 4.8), to: NSPoint(x: cx + u * 0.3, y: cy + u * 4.8), radius: u * 0.9)
+    p.appendArc(from: NSPoint(x: outerR, y: cy + u * 4.8), to: NSPoint(x: outerR, y: cy + u * 3.4), radius: u * 1.05)
+    p.line(to: NSPoint(x: outerR, y: cy - u * 3.6))
+    p.appendArc(from: NSPoint(x: outerR, y: cy - u * 5.6), to: NSPoint(x: cx, y: cy - u * 5.6), radius: u * 1.5)
+    p.appendArc(from: NSPoint(x: outerL, y: cy - u * 5.6), to: NSPoint(x: outerL, y: cy - u * 3.6), radius: u * 1.5)
+    p.line(to: NSPoint(x: outerL, y: cy + u * 1.8))
+    rgb(0xF7F0E2).setStroke()
+    p.stroke()
+    NSGraphicsContext.restoreGraphicsState()
 }
 
 func draw(in rect: NSRect, bleed: Bool = false) {
     let tile = bleed ? rect : rect.insetBy(dx: rect.width * 0.1, dy: rect.height * 0.1)
     let s = tile.width
-    let cream = rgb(0xF7F0E2)
     rgb(0xB23A2A).setFill()
     (bleed ? NSBezierPath(rect: tile) : NSBezierPath(roundedRect: tile, xRadius: s * 0.225, yRadius: s * 0.225)).fill()
-    // The inner line of a seal.
-    let frame = NSBezierPath(roundedRect: tile.insetBy(dx: s * 0.1, dy: s * 0.1), xRadius: s * 0.03, yRadius: s * 0.03)
-    frame.lineWidth = max(1, s * 0.022)
-    cream.setStroke()
-    frame.stroke()
-    glyph("拾", size: s * 0.58, color: cream, center: NSPoint(x: tile.midX, y: tile.midY))
+    clip(in: tile)
 }
 
 func write(_ file: String, size: Int, bleed: Bool = false) throws {
