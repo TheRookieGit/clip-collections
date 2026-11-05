@@ -5,10 +5,12 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var model: AppModel!
+    let ui = MainState()
     var window: NSWindow!
     var settings: NSWindow?
     private var statusMenu: StatusMenu?
     private var keyMonitor: Any?
+    private var arrowMonitor: Any?
     private var hubTimer: Timer?
     private var observers: [NSObjectProtocol] = []
 
@@ -21,10 +23,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.terminate(nil)
             return
         }
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 880, height: 620),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 680),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "拾闻"
-        window.contentView = NSHostingView(rootView: MainView(model: model, ui: MainState(), detail: DetailState()))
+        // The paper runs up under the traffic lights; the masthead carries the name.
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.contentView = NSHostingView(rootView: MainView(model: model, ui: ui, detail: DetailState()))
         window.delegate = self
         // Closing only hides the window; the queue and sync keep running from the menu bar.
         window.isReleasedWhenClosed = false
@@ -33,6 +39,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = buildMenu()
         statusMenu = StatusMenu(model: model) { [weak self] in self?.showWindow() }
         if atLogin { NSApp.setActivationPolicy(.accessory) } else { showWindow() }
+
+        // Up and down walk the list, as they would in a table.
+        arrowMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            guard let self, NSApp.keyWindow === self.window, !(self.window.firstResponder is NSTextView),
+                  e.keyCode == 125 || e.keyCode == 126 else { return e }
+            self.ui.move(by: e.keyCode == 125 ? 1 : -1, in: self.model)
+            return nil
+        }
 
         // ⌘V outside a text field pastes into the app; a picture pastes into the app even from a text field.
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
@@ -72,9 +86,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             MainActor.assumeIsolated { Task { await self?.model.syncHub() } }
         })
         #if DEBUG
+        model.snapshot = { [weak self] spec in self?.takeSnapshot(spec) }
         model.runTestCommands()
         #endif
     }
+
+    #if DEBUG
+    /// "<file> <light|dark> <row to select, or none>": draws the window to a file, no screen permission needed.
+    func takeSnapshot(_ spec: String) {
+        let p = spec.split(separator: " ").map(String.init)
+        guard p.count >= 2 else { return }
+        window.appearance = NSAppearance(named: p[1] == "dark" ? .darkAqua : .aqua)
+        if p.count > 2, p[2] == "settings" {
+            openSettings()
+            settings?.appearance = window.appearance
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(700))
+                guard let v = settings?.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return }
+                v.cacheDisplay(in: v.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: p[0]))
+            }
+            return
+        }
+        ui.selection = p.count > 2 ? ui.shown(in: model).dropFirst(Int(p[2]) ?? 0).first?.id : nil
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard let v = window.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return }
+            v.cacheDisplay(in: v.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: p[0]))
+        }
+    }
+    #endif
 
     func showWindow() {
         NSApp.setActivationPolicy(.regular)
@@ -96,8 +138,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc func openSettings() {
         if settings == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 660), styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
             w.title = "设置"
+            w.titlebarAppearsTransparent = true
+            w.titleVisibility = .hidden
             w.contentView = NSHostingView(rootView: SettingsView(model: model, ui: SettingsState()))
             w.isReleasedWhenClosed = false
             w.center()

@@ -1,4 +1,4 @@
-// Draws the app icon (a clipped page on a deep ink tile) into an .iconset folder: swift scripts/make-icon.swift <folder>
+// Draws the app icon (a vermilion seal on a sheet of newsprint) into an .iconset folder: swift scripts/make-icon.swift <folder>
 import AppKit
 
 func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
@@ -9,17 +9,32 @@ func draw(in rect: NSRect) {
     let tile = rect.insetBy(dx: rect.width * 0.1, dy: rect.height * 0.1)
     let s = tile.width
     let path = NSBezierPath(roundedRect: tile, xRadius: s * 0.225, yRadius: s * 0.225)
-    NSGradient(colors: [rgb(0x2F4A5C), rgb(0x1E3442)])!.draw(in: path, angle: -90)
-    let page = NSRect(x: tile.minX + s * 0.25, y: tile.minY + s * 0.17, width: s * 0.5, height: s * 0.66)
-    rgb(0xF7F3E8).setFill()
-    NSBezierPath(roundedRect: page, xRadius: s * 0.025, yRadius: s * 0.025).fill()
-    rgb(0xB0452C).setFill()
-    NSBezierPath(rect: NSRect(x: page.minX + s * 0.06, y: page.maxY - s * 0.17, width: s * 0.38, height: s * 0.06)).fill()
-    rgb(0x8C8778).setFill()
-    for i in 0..<4 {
-        let w = i == 3 ? s * 0.22 : s * 0.38
-        NSBezierPath(rect: NSRect(x: page.minX + s * 0.06, y: page.maxY - s * (0.27 + CGFloat(i) * 0.085), width: w, height: s * 0.028)).fill()
+    rgb(0xF4EEE1).setFill()
+    path.fill()
+    NSGraphicsContext.saveGraphicsState()
+    path.addClip()
+    // Column rules of a printed page, faint behind the seal.
+    rgb(0x201C17).setFill()
+    NSBezierPath(rect: NSRect(x: tile.minX + s * 0.14, y: tile.maxY - s * 0.2, width: s * 0.72, height: max(1, s * 0.022))).fill()
+    NSBezierPath(rect: NSRect(x: tile.minX + s * 0.14, y: tile.maxY - s * 0.235, width: s * 0.72, height: max(1, s * 0.007))).fill()
+    rgb(0xB9B0A0).setFill()
+    for i in 0..<3 {
+        NSBezierPath(rect: NSRect(x: tile.minX + s * 0.14, y: tile.minY + s * (0.1 + CGFloat(i) * 0.055), width: s * (i == 0 ? 0.42 : 0.72), height: max(1, s * 0.012))).fill()
     }
+    NSGraphicsContext.restoreGraphicsState()
+    // The seal.
+    let side = s * 0.5
+    let seal = NSRect(x: tile.midX - side / 2, y: tile.midY - side * 0.5 + s * 0.015, width: side, height: side)
+    let t = NSAffineTransform()
+    t.translateX(by: seal.midX, yBy: seal.midY); t.rotate(byDegrees: -3); t.translateX(by: -seal.midX, yBy: -seal.midY)
+    NSGraphicsContext.saveGraphicsState()
+    t.concat()
+    rgb(0xB23A2A).setFill()
+    NSBezierPath(roundedRect: seal, xRadius: s * 0.03, yRadius: s * 0.03).fill()
+    let text = NSAttributedString(string: "拾", attributes: [.font: NSFont(name: "STSongti-SC-Black", size: side * 0.72) ?? .boldSystemFont(ofSize: side * 0.72), .foregroundColor: rgb(0xF9F4E8)])
+    let size = text.size()
+    text.draw(at: NSPoint(x: seal.midX - size.width / 2, y: seal.midY - size.height / 2))
+    NSGraphicsContext.restoreGraphicsState()
 }
 
 let folder = CommandLine.arguments[1]

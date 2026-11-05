@@ -39,7 +39,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSApplicationCategoryType</key><string>public.app-category.news</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>NSDesktopFolderUsageDescription</key><string>把生成的新闻 PDF 放到桌面的「新闻」文件夹。</string>
+    <key>NSDesktopFolderUsageDescription</key><string>把生成的新闻 PDF 放到桌面。</string>
 </dict>
 </plist>
 PLIST

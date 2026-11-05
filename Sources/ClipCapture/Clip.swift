@@ -76,6 +76,11 @@ public struct Clip: Codable, Identifiable, Equatable {
         return f.string(from: d)
     }
 
+    public static func day(_ d: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: d)
+    }
+
     public var displayTitle: String {
         if !title.isEmpty { return title }
         return kind == .shots ? "截图 \(max(shotFiles.count, cloudShots.count)) 张" : url
@@ -94,7 +99,7 @@ public struct Paths {
     public init(root: URL? = nil, desktop: URL? = nil) {
         let home = FileManager.default.homeDirectoryForCurrentUser
         self.root = root ?? home.appendingPathComponent("Library/Application Support/ClipCollections")
-        self.desktop = desktop ?? home.appendingPathComponent("Desktop/新闻")
+        self.desktop = desktop ?? home.appendingPathComponent("Desktop")
     }
     public var database: URL { root.appendingPathComponent("clips.sqlite") }
     public var secrets: URL { root.appendingPathComponent("secrets.json") }

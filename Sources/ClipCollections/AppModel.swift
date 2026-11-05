@@ -61,7 +61,7 @@ final class AppModel {
         #if DEBUG
         if let root = ProcessInfo.processInfo.environment["CLIP_TEST_ROOT"] {
             let r = URL(fileURLWithPath: root)
-            return Paths(root: r.appendingPathComponent("data"), desktop: r.appendingPathComponent("桌面/新闻"))
+            return Paths(root: r.appendingPathComponent("data"), desktop: r.appendingPathComponent("桌面"))
         }
         #endif
         return Paths()
@@ -150,6 +150,28 @@ final class AppModel {
     }
 
     #if DEBUG
+    @ObservationIgnored var snapshot: ((String) -> Void)?
+
+    private func seedForDesign() {
+        let day: TimeInterval = 86400
+        func add(_ title: String, _ source: String, _ topic: String, _ date: String, _ status: ClipStatus, _ age: TimeInterval, reason: String = "", url: String = "https://example.com/a", shots: Int = 0, full: Bool = false, video: Bool = false, want: Int? = nil, have: Int? = nil) {
+            var c = Clip(kind: shots > 0 ? .shots : .link, url: url, now: Date().addingTimeInterval(-age))
+            c.title = title; c.source = source; c.topic = topic; c.publishedAt = date; c.status = status; c.reason = reason; c.fullPage = full; c.videoMissing = video
+            c.expectedImages = want; c.embeddedImages = have; c.hasPDF = status == .saved || status == .incomplete
+            c.dirty = false; c.shotFiles = (0..<shots).map { "\($0).png" }
+            if status == .saved { c.exportedAt = Date(); c.desktopFile = "/Users/x/Desktop/2026-11-04 \(title).pdf" }
+            clips.append(c)
+        }
+        add("美联储利率决议后，长端美债收益率为何继续上行", "财经观察", "投资", "2026-11-03", .saved, 3600, want: 6, have: 6)
+        add("中央政治局会议释放的五个信号", "新华社", "政策", "2026-11-04", .processing, 600, url: "https://example.com/b")
+        add("", "", "", "", .pending, 300, url: "https://www.xiaohongshu.com/explore/6ac6f7b900000")
+        add("丰田章男的孤独：新发动机一箱油跑 1200 公里", "小红书 · 资本车讯", "汽车", "2026-10-07", .incomplete, day + 2000, reason: "图片不全：笔记有 12 张，PDF 里只有 9 张", want: 12, have: 9)
+        add("半导体设备出口新规解读", "财新", "科技", "2026-11-02", .saved, day + 5000, shots: 3)
+        add("", "", "", "", .failed, 2 * day + 800, reason: "小红书暂时限制了这次访问：可以过一会儿重试，也可以登录网站后重试，或者改用截图", url: "https://xhslink.com/a/abc")
+        add("土豆泡芙｜外脆里软，材料简单", "小红书 · 吴所不甜", "生活", "2026-10-07", .saved, 2 * day + 5000, video: true)
+        add("BBC News - 今日要闻", "BBC", "国际", "", .saved, 9 * day, full: true)
+    }
+
     /// A test states what is in the list and sends text or files, as a paste would.
     func runTestCommands() {
         guard let file = ProcessInfo.processInfo.environment["CLIP_TEST_ROOT"].map({ URL(fileURLWithPath: $0).appendingPathComponent("commands") }) else { return }
@@ -165,7 +187,8 @@ final class AppModel {
                     case "link": self.addLink(parts[1])
                     case "shots": self.addShots(parts[1].split(separator: "|").map { URL(fileURLWithPath: String($0)) })
                     case "delete": if let c = self.visible.first(where: { $0.url == parts[1] || $0.title == parts[1] }) { self.delete(c.id) }
-                    case "reexport": break
+                    case "seed": self.seedForDesign()
+                    case "snapshot": self.snapshot?(parts[1])
                     default: break
                     }
                 }

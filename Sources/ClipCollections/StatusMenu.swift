@@ -16,13 +16,30 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
-        item.button?.image = NSImage(systemSymbolName: "newspaper", accessibilityDescription: "拾闻")
+        item.button?.image = Self.glyph
         item.button?.toolTip = "拾闻"
         if !UserDefaults.standard.bool(forKey: "loginItemDefaulted") {
             UserDefaults.standard.set(true, forKey: "loginItemDefaulted")
             try? SMAppService.mainApp.register()
         }
     }
+
+    /// A small seal with 闻 in it, drawn as a template so it follows the menu bar's light and dark.
+    static let glyph: NSImage = {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            NSColor.black.set()
+            let box = NSBezierPath(roundedRect: NSRect(x: 1.6, y: 1.6, width: 14.8, height: 14.8), xRadius: 1.6, yRadius: 1.6)
+            box.lineWidth = 1.3
+            box.stroke()
+            let t = NSAttributedString(string: "闻", attributes: [.font: NSFont(name: "STSongti-SC-Bold", size: 11.5) ?? .systemFont(ofSize: 11.5), .foregroundColor: NSColor.black])
+            let s = t.size()
+            t.draw(at: NSPoint(x: 9 - s.width / 2, y: 9 - s.height / 2 + 0.4))
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "拾闻"
+        return image
+    }()
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()

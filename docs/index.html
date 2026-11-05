@@ -6,57 +6,68 @@
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="拾闻">
-<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1b1a18" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f0e6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1916" media="(prefers-color-scheme: dark)">
 <title>拾闻</title>
 <style>
-:root{--bg:#f7f5f0;--card:#fffdf9;--ink:#23211d;--soft:#6c675d;--line:#e3ded3;--accent:#b0452c;--accent-ink:#fff;
---wait:#8a6d1d;--wait-bg:#f6edcf;--run:#2c5f8a;--run-bg:#dfeaf3;--ok:#2f6b45;--ok-bg:#dfeee3;--warn:#a2541b;--warn-bg:#f8e6d4;--bad:#a4332d;--bad-bg:#f7dfdc}
-@media (prefers-color-scheme:dark){:root{--bg:#1b1a18;--card:#262421;--ink:#ece8df;--soft:#a39d90;--line:#3a3733;--accent:#e0765b;--accent-ink:#1b1a18;
---wait:#e0c26a;--wait-bg:#3b3219;--run:#8dbde3;--run-bg:#1f3242;--ok:#8fcfa5;--ok-bg:#1f3527;--warn:#eeaa74;--warn-bg:#40291a;--bad:#ef9690;--bad-bg:#42211f}}
+:root{color-scheme:light dark;--paper:#f5f0e6;--sheet:#faf6ee;--hover:#f0eadd;--ink:#221e18;--soft:#6d665a;--faint:#8f8778;--line:#dad2c2;--strong:#221e18;--seal:#b23a2a;--on-seal:#fbf6ea;--ochre:#96660f;--notice:#f0e4ce;
+--serif:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;--sans:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+@media (prefers-color-scheme:dark){:root{--paper:#1b1916;--sheet:#211f1b;--hover:#26231f;--ink:#ece5d8;--soft:#a49c8e;--faint:#7d766a;--line:#38342d;--strong:#cfc8ba;--seal:#e2694f;--on-seal:#1b1916;--ochre:#dda94f;--notice:#332b1e}}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 var(--sans);-webkit-text-size-adjust:100%}
 button,input,textarea,select{font:inherit;color:inherit}
-.wrap{max-width:760px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom))}
-header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
-h1{font-size:24px;margin:0;font-weight:650;letter-spacing:.02em}
-#mac{font-size:13px;color:var(--soft)}
-.add{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
-.add.drag{border-color:var(--accent)}
-.row{display:flex;gap:8px}
-#link{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:16px}
-.btn{padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;white-space:nowrap;min-height:44px}
-.btn.main{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+input,textarea{background:none;border:0;border-radius:0;outline:0}
+:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+input:focus-visible,textarea:focus-visible{outline:0}
+.wrap{max-width:720px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom))}
+header{padding-bottom:8px;border-bottom:3px double var(--strong);display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+h1{font:900 34px/1.2 var(--serif);letter-spacing:.12em;margin:0}
+.date{font:14px var(--serif);text-align:right}
+#mac{display:block;font:12px var(--sans);color:var(--soft)}
+.add{padding:12px 0 10px;border-bottom:1px solid var(--line)}
+.add.drag{background:var(--notice)}
+.row{display:flex;gap:10px;align-items:center}
+#link{flex:1;min-width:0;padding:8px 0;font-size:16px}
+#link::placeholder,#q::placeholder{color:var(--faint)}
+.btn{min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:2px;background:none;cursor:pointer;white-space:nowrap;font-size:14px}
+.btn.main{background:var(--seal);border-color:var(--seal);color:var(--on-seal);font:700 15px var(--serif);letter-spacing:.08em}
+.btn.quiet{border:0;padding:0;min-height:44px;color:var(--soft)}
 .btn:disabled{opacity:.5;cursor:default}
-.tray{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tray:empty{display:none}
-.tray figure{position:relative;margin:0}.tray img{width:64px;height:64px;object-fit:cover;border-radius:6px;display:block;border:1px solid var(--line)}
-.tray button{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);cursor:pointer;line-height:1;padding:0}
-.hint{font-size:13px;color:var(--soft);margin-top:8px}
-.filters{display:flex;gap:8px;margin-bottom:12px}
-#q{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:16px}
-#topic{max-width:40%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
-.item{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
-.item>button{all:unset;display:block;width:100%;box-sizing:border-box;padding:12px;cursor:pointer}
-.item>button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.title{font-weight:600;overflow-wrap:anywhere}
-.meta{font-size:13px;color:var(--soft);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-.tag{font-size:12px;padding:1px 8px;border-radius:999px;font-weight:600}
-.pending{color:var(--wait);background:var(--wait-bg)}.processing{color:var(--run);background:var(--run-bg)}.saved{color:var(--ok);background:var(--ok-bg)}.incomplete{color:var(--warn);background:var(--warn-bg)}.failed{color:var(--bad);background:var(--bad-bg)}
-.detail{padding:0 12px 12px;border-top:1px solid var(--line)}
-.detail p{margin:10px 0;font-size:14px;overflow-wrap:anywhere}
-.detail a{color:var(--accent)}
-.reason{color:var(--warn)}
-.shots{display:flex;flex-direction:column;gap:8px;margin:10px 0}.shots img{width:100%;border-radius:6px;border:1px solid var(--line);display:block}
-.detail label{display:block;font-size:13px;color:var(--soft);margin-top:8px}
-.detail input,.detail textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:16px}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.danger{color:var(--bad)}
-.empty{text-align:center;color:var(--soft);padding:32px 12px}
-#gate{max-width:360px;margin:18vh auto 0;padding:0 16px}
-#gate input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);margin:12px 0;font-size:16px}
+.hint{font-size:13px;color:var(--soft)}
+.tray{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.tray:empty{display:none}
+.tray figure{position:relative;margin:0}.tray img{width:60px;height:78px;object-fit:cover;display:block;border:1px solid var(--line)}
+.tray button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border:0;background:var(--strong);color:var(--paper);cursor:pointer;line-height:1;padding:0}
+.filters{display:flex;gap:16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+#topics{flex:1;min-width:0;display:flex;gap:16px;overflow-x:auto;scrollbar-width:none}#topics::-webkit-scrollbar{display:none}
+#topics button{all:unset;cursor:pointer;font:15px var(--serif);color:var(--soft);white-space:nowrap;padding:6px 0}
+#topics button[aria-pressed=true]{color:var(--seal);font-weight:700}
+#topics button:focus-visible{outline:2px solid var(--seal)}
+#q{width:88px;font-size:16px;text-align:right}
+.day{font:700 13px var(--serif);letter-spacing:.06em;color:var(--soft);margin:20px 0 4px}
+.item{border-bottom:1px solid var(--line)}
+.item>button{all:unset;display:grid;grid-template-columns:1fr auto;gap:4px 14px;width:100%;box-sizing:border-box;padding:12px 0;cursor:pointer}
+.item>button:focus-visible{outline:2px solid var(--seal);outline-offset:-2px}
+@media (hover:hover){.item>button:hover{background:var(--hover)}}
+.title{font:700 17px/1.5 var(--serif);overflow-wrap:anywhere}
+.title.bare{font:14px/1.5 var(--sans);color:var(--soft);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+.meta{grid-column:1;font-size:12.5px;color:var(--soft)}
+.stamp{grid-column:2;grid-row:1;align-self:start;margin-top:3px;font:700 12px/1.4 var(--serif);letter-spacing:.06em;padding:1px 6px;border:1px solid;border-radius:2px;white-space:nowrap}
+.pending{color:var(--faint);border-style:dashed}.processing{color:var(--soft)}.saved{color:var(--seal);border-width:1.5px;transform:rotate(-3deg)}.incomplete{color:var(--ochre)}.failed{color:var(--paper);background:var(--strong);border-color:var(--strong)}
+.detail{padding:2px 0 16px}
+.detail p{margin:0 0 10px;font-size:14px;overflow-wrap:anywhere}
+.detail a{color:var(--seal)}
+.reason{background:var(--notice);padding:8px 12px}
+.shots{display:flex;flex-direction:column;gap:8px;margin:10px 0}.shots img{width:100%;display:block;border:1px solid var(--line)}
+.detail label{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font:700 13px var(--serif);color:var(--soft)}
+.detail input,.detail textarea{width:100%;font:16px var(--sans);color:var(--ink);resize:vertical;min-width:0}
+.actions{display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding-top:8px;border-top:1px solid var(--line)}
+.empty{padding:32px 0;color:var(--soft)}.empty b{display:block;font:700 20px var(--serif);color:var(--ink);margin-bottom:6px}
+#gate{max-width:360px;margin:20vh auto 0;padding:0 16px}
+#gate h1{padding-bottom:8px;border-bottom:3px double var(--strong)}
+#gate input{display:block;width:100%;padding:12px 0;border-bottom:1px solid var(--line);margin:12px 0 16px;font-size:16px}
 #gate .btn{width:100%}
-#err{color:var(--bad);font-size:14px;min-height:1.5em}
-#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+#err{color:var(--seal);font-size:14px;min-height:1.6em;margin-top:8px}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--strong);color:var(--paper);padding:8px 14px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
 </style>
@@ -71,22 +82,22 @@ h1{font-size:24px;margin:0;font-weight:650;letter-spacing:.02em}
   </form>
 </main>
 <div class="wrap" id="app" hidden>
-  <header><h1>拾闻</h1><span id="mac"></span></header>
+  <header><h1>拾闻</h1><div class="date"><span id="today"></span><span id="mac"></span></div></header>
   <section class="add" id="addBox">
     <form class="row" id="addForm">
       <input id="link" type="url" inputmode="url" placeholder="粘贴新闻链接" aria-label="新闻链接" autocomplete="off">
-      <button class="btn main" id="save" type="submit">保存</button>
+      <button class="btn main" id="save" type="submit">剪存</button>
     </form>
-    <div class="row" style="margin-top:8px">
-      <button class="btn" id="pick" type="button">选择截图</button>
+    <div class="row">
+      <button class="btn quiet" id="pick" type="button">选择截图</button>
       <input id="file" type="file" accept="image/*" multiple hidden>
+      <span class="hint">几张截图合成一则新闻</span>
     </div>
     <div class="tray" id="tray"></div>
-    <div class="hint">几张截图合成一条新闻。也可以直接粘贴或拖入图片。</div>
   </section>
   <div class="filters">
+    <div id="topics" role="group" aria-label="按主题筛选"></div>
     <input id="q" type="search" placeholder="搜索" aria-label="搜索">
-    <select id="topic" aria-label="按主题筛选"></select>
   </div>
   <section id="list" aria-live="polite"></section>
 </div>
@@ -105,7 +116,7 @@ const localDay = (iso) => { const d = new Date(iso); if (isNaN(d)) return ""; co
 const safeLink = (u) => /^https?:\/\//i.test(u || "") ? u : "";
 
 let passcode = store.get("passcode") || "";
-let clips = [], pending = [], mac = null, open = null, tray = [], urls = {}, timer = null;
+let clips = [], pending = [], mac = null, open = null, tray = [], urls = {}, timer = null, topic = "";
 
 let toastTimer;
 function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2800); }
@@ -133,6 +144,15 @@ function merged() {
   return [...m.values()].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }
 
+function dayName(iso) {
+  const d = new Date(iso); if (isNaN(d)) return "更早";
+  const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((start(new Date()) - start(d)) / 86400000);
+  if (days === 0) return "今天";
+  if (days === 1) return "昨天";
+  return d.getFullYear() === new Date().getFullYear() ? `${d.getMonth() + 1}月${d.getDate()}日` : `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
 function macText() {
   if (!mac) return "";
   if (mac.online) return "Mac 在线";
@@ -142,27 +162,35 @@ function macText() {
 function render() {
   $("#mac").textContent = macText();
   const all = merged();
-  const sel = $("#topic"), chosen = sel.value;
   const topics = [...new Set(all.map((c) => c.topic).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh"));
-  sel.innerHTML = `<option value="">全部主题</option>` + topics.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
-  sel.value = topics.includes(chosen) ? chosen : "";
+  if (topic && !topics.includes(topic)) topic = "";
+  $("#topics").innerHTML = [["全部", ""], ...topics.map((t) => [t, t])].map(([n, v]) => `<button type="button" data-topic="${esc(v)}" aria-pressed="${topic === v}">${esc(n)}</button>`).join("");
   const q = $("#q").value.trim().toLowerCase();
-  const shown = all.filter((c) => (!sel.value || c.topic === sel.value) && (!q || [c.title, c.source, c.url, c.topic, c.note].join(" ").toLowerCase().includes(q)));
+  const shown = all.filter((c) => (!topic || c.topic === topic) && (!q || [c.title, c.source, c.url, c.topic, c.note].join(" ").toLowerCase().includes(q)));
   // Keeps what is being typed in an open item from being replaced by a refresh.
   if (document.activeElement?.closest?.(".detail")) return;
-  $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<div class="empty">${all.length ? "没有符合条件的新闻" : "还没有新闻。粘贴一个链接，或选择截图开始。"}</div>`;
+  let html = "", last = null;
+  for (const c of shown) {
+    const day = dayName(c.createdAt);
+    if (day !== last) { html += `<h2 class="day">${esc(day)}</h2>`; last = day; }
+    html += card(c);
+  }
+  $("#list").innerHTML = html || (all.length ? `<div class="empty">没有符合条件的新闻</div>` : `<div class="empty"><b>剪下第一则新闻</b>粘贴一个链接，或者选择截图。Mac 开机后会存成 PDF。</div>`);
   if (open) loadShots(all.find((c) => c.id === open));
 }
 
 function card(c) {
+  const bare = !c.title;
   const title = c.title || (c.kind === "shots" ? `截图 ${c.shots?.length || ""} 张` : c.url) || "未命名";
   const date = c.publishedAt || localDay(c.createdAt);
   const isOpen = open === c.id;
   const link = safeLink(c.url);
+  const meta = [c.topic, c.source, date, c.fullPage ? "整页版" : ""].filter(Boolean).join(" · ");
   return `<article class="item" data-id="${esc(c.id)}">
     <button type="button" data-act="toggle" aria-expanded="${isOpen}">
-      <div class="title">${esc(title)}</div>
-      <div class="meta"><span class="tag ${esc(c.status)}">${esc(STATUS[c.status] || c.status)}</span>${c.fullPage ? "<span>整页版</span>" : ""}${c.topic ? `<span>${esc(c.topic)}</span>` : ""}${c.source ? `<span>${esc(c.source)}</span>` : ""}<span>${esc(date)}</span></div>
+      <div class="title${bare ? " bare" : ""}">${esc(title)}</div>
+      <span class="stamp ${esc(c.status)}">${esc(STATUS[c.status] || c.status)}</span>
+      <div class="meta">${esc(meta)}</div>
     </button>
     ${isOpen ? `<div class="detail">
       ${c.reason ? `<p class="reason">${esc(c.reason)}</p>` : ""}
@@ -175,7 +203,7 @@ function card(c) {
       <div class="actions">
         <button class="btn" data-act="edit" type="button">保存修改</button>
         ${c.status === "failed" || c.status === "incomplete" ? `<button class="btn" data-act="retry" type="button">重试</button>` : ""}
-        <button class="btn danger" data-act="delete" type="button">删除</button>
+        <button class="btn quiet" data-act="delete" type="button">删除</button>
       </div>
     </div>` : ""}
   </article>`;
@@ -231,7 +259,7 @@ function addFiles(files) {
 }
 function drawTray() {
   $("#tray").innerHTML = tray.map((t, i) => `<figure><img src="${esc(t.url)}" alt="第 ${i + 1} 张"><button type="button" data-rm="${i}" aria-label="移除第 ${i + 1} 张">×</button></figure>`).join("");
-  $("#pick").textContent = tray.length ? "再加截图" : "选择截图";
+  $("#pick").textContent = tray.length ? `再加截图（已选 ${tray.length} 张）` : "选择截图";
 }
 
 async function save() {
@@ -256,8 +284,8 @@ async function save() {
       await send({ op: "add", id: shotId, kind: "shots", shots: paths, createdAt });
       tray.forEach((t) => URL.revokeObjectURL(t.url)); tray = []; drawTray();
     }
-    toast(mac?.online ? "已保存，Mac 正在处理" : "已保存，等 Mac 开机后处理");
-  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = "保存"; }
+    toast(mac?.online ? "已收下，Mac 正在处理" : "已收下，等 Mac 开机后处理");
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = "剪存"; }
 }
 
 $("#gateForm").addEventListener("submit", async (e) => {
@@ -271,7 +299,9 @@ $("#addForm").addEventListener("submit", (e) => { e.preventDefault(); save(); })
 $("#pick").addEventListener("click", () => $("#file").click());
 $("#file").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
 $("#tray").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { const [t] = tray.splice(+b.dataset.rm, 1); URL.revokeObjectURL(t.url); drawTray(); } });
-$("#q").addEventListener("input", render); $("#topic").addEventListener("change", render);
+$("#q").addEventListener("input", render);
+$("#topics").addEventListener("click", (e) => { const b = e.target.closest("[data-topic]"); if (b) { topic = b.dataset.topic; render(); } });
+$("#today").textContent = new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" });
 document.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])]; if (f.length) { e.preventDefault(); addFiles(f); } });
 const box = $("#addBox");
 for (const t of ["dragenter", "dragover"]) box.addEventListener(t, (e) => { e.preventDefault(); box.classList.add("drag"); });

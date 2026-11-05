@@ -3,18 +3,6 @@ import ClipCapture
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension ClipStatus {
-    var color: Color {
-        switch self {
-        case .pending: return .secondary
-        case .processing: return .blue
-        case .saved: return .green
-        case .incomplete: return .orange
-        case .failed: return .red
-        }
-    }
-}
-
 /// View state lives in observable classes rather than @State: Command Line Tools ship without the SwiftUI macro plugin.
 @MainActor @Observable
 final class MainState {
@@ -22,7 +10,23 @@ final class MainState {
     var query = ""
     var topic = ""
     var selection: String?
+    var hovered: String?
     var dropping = false
+
+    func shown(in model: AppModel) -> [Clip] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        return model.visible.filter { c in
+            (topic.isEmpty || c.topic == topic)
+                && (q.isEmpty || [c.title, c.source, c.url, c.topic, c.note].joined(separator: " ").lowercased().contains(q))
+        }
+    }
+
+    func move(by step: Int, in model: AppModel) {
+        let list = shown(in: model)
+        guard !list.isEmpty else { return }
+        let at = list.firstIndex { $0.id == selection } ?? (step > 0 ? -1 : list.count)
+        selection = list[min(max(at + step, 0), list.count - 1)].id
+    }
 }
 
 @MainActor @Observable
@@ -38,58 +42,36 @@ struct MainView: View {
     @Bindable var ui: MainState
     let detail: DetailState
 
-    private var shown: [Clip] {
-        let q = ui.query.trimmingCharacters(in: .whitespaces).lowercased()
-        return model.visible.filter { c in
-            (ui.topic.isEmpty || c.topic == ui.topic)
-                && (q.isEmpty || [c.title, c.source, c.url, c.topic, c.note].joined(separator: " ").lowercased().contains(q))
+    /// Newest day first; a day keeps its items newest first.
+    private var days: [(day: Date, clips: [Clip])] {
+        let cal = Calendar.current
+        var out: [(day: Date, clips: [Clip])] = []
+        for c in ui.shown(in: model) {
+            let d = cal.startOfDay(for: c.createdAt)
+            if out.last?.day == d { out[out.count - 1].clips.append(c) } else { out.append((d, [c])) }
         }
+        return out
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                TextField("粘贴新闻链接，或在窗口里按 ⌘V 粘贴图片", text: $ui.link)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(save)
-                Button("保存", action: save).keyboardShortcut(.defaultAction).disabled(ui.link.isEmpty)
-            }
-            .padding(12)
+            masthead
+            intake
             if !model.draft.isEmpty { DraftTray(model: model) }
-            if !model.hasKey { Banner(text: "还没填 Anthropic API Key：截图不会自动识别标题和主题。可以在设置（⌘,）里填写。") }
-            if let e = model.cloudError { Banner(text: "云端同步出错：\(e)") }
-            if let n = model.notice {
-                Banner(text: n, onClose: { model.notice = nil })
-            }
-            HStack(spacing: 8) {
-                TextField("搜索", text: $ui.query).textFieldStyle(.roundedBorder)
-                Picker("主题", selection: $ui.topic) {
-                    Text("全部主题").tag("")
-                    ForEach(model.topics, id: \.self) { Text($0).tag($0) }
-                }
-                .labelsHidden().frame(maxWidth: 150)
-            }
-            .padding(.horizontal, 12).padding(.bottom, 8)
-            Divider()
-            HSplitView {
-                List(shown, selection: $ui.selection) { c in
-                    Row(clip: c).tag(c.id)
-                        .contextMenu { ClipActions(model: model, clip: c) }
-                }
-                .overlay { if shown.isEmpty { Text(model.visible.isEmpty ? "还没有新闻。粘贴一个链接或一张截图开始。" : "没有符合条件的新闻").foregroundStyle(.secondary) } }
-                .frame(minWidth: 320)
-                Group {
-                    if let id = ui.selection, let c = model.clip(id), !c.deleted {
-                        Detail(model: model, clip: c, ui: detail).id(id)
-                    } else {
-                        Text("选择一条新闻").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-                .frame(minWidth: 300)
+            notices
+            filters
+            Rule()
+            HStack(spacing: 0) {
+                list.frame(minWidth: 340, idealWidth: 400, maxWidth: 440)
+                Rectangle().fill(Ink.line).frame(width: 1)
+                detailPane.frame(minWidth: 320, maxWidth: .infinity)
             }
         }
-        .frame(minWidth: 680, minHeight: 460)
-        .overlay { if ui.dropping { RoundedRectangle(cornerRadius: 8).stroke(.tint, lineWidth: 3).padding(4) } }
+        .background(Ink.paper)
+        .foregroundStyle(Ink.text)
+        .tint(Ink.seal)
+        .frame(minWidth: 740, minHeight: 520)
+        .overlay { if ui.dropping { Rectangle().strokeBorder(Ink.seal, style: StrokeStyle(lineWidth: 2, dash: [6, 4])).padding(6) } }
         .onDrop(of: [.fileURL], isTargeted: $ui.dropping) { items in
             for item in items {
                 _ = item.loadObject(ofClass: URL.self) { url, _ in
@@ -100,60 +82,186 @@ struct MainView: View {
         }
     }
 
+    private var masthead: some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
+                Text("拾闻").font(Type.heavy(34)).kerning(4)
+                Spacer()
+                Text(Dates.masthead()).font(Type.serif(13))
+                Text("共 \(model.visible.count) 则").font(Type.serif(13)).foregroundStyle(Ink.soft)
+            }
+            DoubleRule()
+        }
+        .padding(.horizontal, 28).padding(.top, 30)
+    }
+
+    private var intake: some View {
+        HStack(spacing: 12) {
+            TextField("", text: $ui.link, prompt: Text("粘贴新闻链接，或按 ⌘V 放入截图").foregroundStyle(Ink.faint))
+                .textFieldStyle(.plain)
+                .font(.system(size: 14))
+                .onSubmit(save)
+                .accessibilityLabel("新闻链接")
+            Button("剪存", action: save).buttonStyle(SealButton()).keyboardShortcut(.defaultAction).opacity(ui.link.isEmpty ? 0.45 : 1).disabled(ui.link.isEmpty)
+        }
+        .padding(.horizontal, 28).padding(.vertical, 12)
+    }
+
+    @ViewBuilder private var notices: some View {
+        if !model.hasKey { Notice(text: "还没填 Anthropic API Key，截图不会自动识别标题和主题。可以在设置（⌘,）里填写。") }
+        if let e = model.cloudError { Notice(text: "云端同步出错：\(e)") }
+        if let e = model.hubError { Notice(text: "心愿中枢同步出错：\(e)") }
+        if let n = model.notice { Notice(text: n, onClose: { model.notice = nil }) }
+    }
+
+    private var filters: some View {
+        HStack(spacing: 16) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    topicTab("全部", "")
+                    ForEach(model.topics, id: \.self) { topicTab($0, $0) }
+                }
+            }
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Ink.faint).accessibilityHidden(true)
+                TextField("", text: $ui.query, prompt: Text("搜索").foregroundStyle(Ink.faint)).textFieldStyle(.plain).font(.system(size: 12.5)).frame(width: 130).accessibilityLabel("搜索")
+            }
+        }
+        .padding(.horizontal, 28).padding(.bottom, 8)
+    }
+
+    private func topicTab(_ name: String, _ value: String) -> some View {
+        let on = ui.topic == value
+        return Button { ui.topic = value } label: {
+            Text(name).font(on ? Type.title(13) : Type.serif(13)).foregroundStyle(on ? Ink.seal : Ink.soft)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private var list: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(days, id: \.day) { group in
+                    Text(Dates.heading(group.day)).font(Type.title(12)).kerning(1).foregroundStyle(Ink.soft)
+                        .padding(.horizontal, 28).padding(.top, 18).padding(.bottom, 6)
+                        .accessibilityAddTraits(.isHeader)
+                    ForEach(group.clips) { c in
+                        Row(clip: c, selected: ui.selection == c.id, hovered: ui.hovered == c.id)
+                            .contentShape(Rectangle())
+                            .onTapGesture { ui.selection = c.id }
+                            .onHover { ui.hovered = $0 ? c.id : (ui.hovered == c.id ? nil : ui.hovered) }
+                            .contextMenu { ClipActions(model: model, clip: c) }
+                    }
+                }
+            }
+            .padding(.bottom, 24)
+        }
+        .overlay { if ui.shown(in: model).isEmpty { EmptyList(filtered: !model.visible.isEmpty) } }
+    }
+
+    @ViewBuilder private var detailPane: some View {
+        if let id = ui.selection, let c = model.clip(id), !c.deleted {
+            Detail(model: model, clip: c, ui: detail).id(id)
+        } else {
+            VStack(spacing: 6) {
+                Text("闻").font(Type.heavy(56)).foregroundStyle(Ink.line).accessibilityHidden(true)
+                Text("选一则新闻").font(Type.serif(13)).foregroundStyle(Ink.faint)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
     private func save() { model.notice = nil; model.addLink(ui.link); if model.notice == nil { ui.link = "" } }
 }
 
-struct Banner: View {
+struct EmptyList: View {
+    let filtered: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(filtered ? "没有符合条件的新闻" : "剪下第一则新闻").font(Type.title(18))
+            if !filtered {
+                Text("粘贴链接，或者把截图按 ⌘V 放进来。\n存好的 PDF 会放到桌面。").font(.system(size: 12.5)).foregroundStyle(Ink.soft).lineSpacing(3)
+            }
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+struct Notice: View {
     let text: String
     var onClose: (() -> Void)?
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(text).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-            Spacer()
-            if let onClose { Button("知道了", action: onClose).buttonStyle(.link) }
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(text).font(.system(size: 12.5)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            if let onClose { Button("知道了", action: onClose).buttonStyle(TextAction(color: Ink.seal)) }
         }
-        .padding(.horizontal, 12).padding(.bottom, 8)
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background(Ink.notice)
+        .padding(.horizontal, 28).padding(.bottom, 10)
     }
 }
 
 struct DraftTray: View {
     @Bindable var model: AppModel
     var body: some View {
-        HStack(spacing: 8) {
-            ScrollView(.horizontal) {
-                HStack(spacing: 6) {
+        HStack(spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
                     ForEach(Array(model.draft.enumerated()), id: \.offset) { i, url in
                         if let img = NSImage(contentsOf: url) {
-                            Image(nsImage: img).resizable().aspectRatio(contentMode: .fill).frame(width: 44, height: 44).clipped()
+                            Image(nsImage: img).resizable().aspectRatio(contentMode: .fill).frame(width: 40, height: 52).clipped()
+                                .overlay(Rectangle().strokeBorder(Ink.line, lineWidth: 1))
                                 .overlay(alignment: .topTrailing) {
-                                    Button { model.draft.remove(at: i) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).accessibilityLabel("移除第 \(i + 1) 张")
+                                    Button { model.draft.remove(at: i) } label: { Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).padding(3).background(Ink.strong).foregroundStyle(Ink.paper) }
+                                        .buttonStyle(.plain).accessibilityLabel("移除第 \(i + 1) 张")
                                 }
                         }
                     }
                 }
             }
-            Button("存成一条新闻（\(model.draft.count) 张）") { model.saveDraft() }
-            Button("清空") { model.draft = [] }
+            Button("合成一则（\(model.draft.count) 张）") { model.saveDraft() }.buttonStyle(SealButton())
+            Button("清空") { model.draft = [] }.buttonStyle(TextAction())
         }
-        .padding(.horizontal, 12).padding(.bottom, 8)
+        .padding(.horizontal, 28).padding(.bottom, 12)
     }
 }
 
 struct Row: View {
     let clip: Clip
+    var selected: Bool
+    var hovered: Bool
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(clip.displayTitle).lineLimit(2)
-            HStack(spacing: 8) {
-                Text(clip.status.label).foregroundStyle(clip.status.color).fontWeight(.medium)
-                if clip.fullPage { Text("整页版") }
-                if clip.videoMissing { Text("视频未保存") }
-                if !clip.topic.isEmpty { Text(clip.topic) }
-                if !clip.source.isEmpty { Text(clip.source).lineLimit(1) }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(clip.displayTitle)
+                        .font(clip.title.isEmpty ? .system(size: 13) : Type.title(15))
+                        .foregroundStyle(clip.title.isEmpty ? Ink.soft : Ink.text)
+                        .lineLimit(2).lineSpacing(2)
+                        .truncationMode(clip.title.isEmpty ? .middle : .tail)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !meta.isEmpty { Text(meta).font(.system(size: 11.5)).foregroundStyle(Ink.soft).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+                Stamp(status: clip.status).padding(.top, 2)
             }
-            .font(.caption).foregroundStyle(.secondary)
+            .padding(.horizontal, 16).padding(.vertical, 11)
+            .background(selected ? Ink.selected : hovered ? Ink.hover : .clear)
+            Rule().padding(.horizontal, 16)
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private var meta: String {
+        var p = [clip.topic, clip.source].filter { !$0.isEmpty }
+        if clip.fullPage { p.append("整页版") }
+        if clip.videoMissing { p.append("视频未保存") }
+        return p.joined(separator: " · ")
     }
 }
 
@@ -183,46 +291,97 @@ struct Detail: View {
     @Bindable var ui: DetailState
 
     private var changed: Bool { ui.title != clip.title || ui.topic != clip.topic || ui.note != clip.note }
+    private var failing: Bool { clip.status == .failed || clip.status == .incomplete }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(clip.status.label).foregroundStyle(clip.status.color).fontWeight(.semibold)
-                    if clip.fullPage { Text("整页打印版").foregroundStyle(.secondary) }
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .center) {
+                    Text(byline).font(.system(size: 12)).foregroundStyle(Ink.soft).lineLimit(1)
                     Spacer()
+                    Stamp(status: clip.status, large: true)
                 }
-                if !clip.reason.isEmpty { Text(clip.reason).foregroundStyle(clip.status == .failed || clip.status == .incomplete ? .red : .secondary).textSelection(.enabled) }
-                if let want = clip.expectedImages, clip.kind == .link { Text("图片 \(clip.embeddedImages ?? 0) / \(want) 张").font(.callout).foregroundStyle(.secondary) }
-                if clip.videoMissing { Text("这是视频笔记：保留了封面和文字，视频本身没有保存。").font(.callout).foregroundStyle(.secondary) }
-                if !clip.source.isEmpty { LabeledContent("来源", value: clip.source) }
-                if !clip.publishedAt.isEmpty { LabeledContent("发布", value: clip.publishedAt) }
-                if let f = clip.desktopFile { LabeledContent("桌面文件", value: URL(fileURLWithPath: f).lastPathComponent) }
-                if !clip.url.isEmpty { Text(clip.url).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(3) }
-                Divider()
-                TextField("标题", text: $ui.title).textFieldStyle(.roundedBorder)
-                TextField("主题", text: $ui.topic).textFieldStyle(.roundedBorder)
-                TextField("备注", text: $ui.note, axis: .vertical).lineLimit(2...5).textFieldStyle(.roundedBorder)
-                if changed { Button("保存修改") { model.update(clip.id, title: ui.title, topic: ui.topic, note: ui.note) } }
-                Divider()
-                HStack { clipButtons(model, clip) }
-                HStack {
-                    if clip.hasPDF { Button("再导出一份到桌面") { model.exportAgain(clip.id) } }
-                    Button("删除…", role: .destructive) { ui.confirming = true }
+                TextField("", text: $ui.title, prompt: Text("标题待识别").foregroundStyle(Ink.faint), axis: .vertical)
+                    .textFieldStyle(.plain).font(Type.title(23)).lineSpacing(5).lineLimit(1...6)
+                    .padding(.top, 14)
+                    .accessibilityLabel("标题")
+                if !clip.reason.isEmpty { reason.padding(.top, 14) }
+                actions.padding(.top, 18)
+                VStack(alignment: .leading, spacing: 0) {
+                    Rule()
+                    field("主题") { TextField("", text: $ui.topic, prompt: Text("未分类").foregroundStyle(Ink.faint)).textFieldStyle(.plain).accessibilityLabel("主题") }
+                    if let want = clip.expectedImages, clip.kind == .link, want > 0 { field("图片") { Text("\(clip.embeddedImages ?? 0) / \(want) 张") } }
+                    if clip.kind == .shots { field("截图") { Text("\(max(clip.shotFiles.count, clip.cloudShots.count)) 张") } }
+                    if clip.videoMissing { field("视频") { Text("没有保存，只保留了封面和文字").foregroundStyle(Ink.soft) } }
+                    if let f = clip.desktopFile { field("桌面") { Text(URL(fileURLWithPath: f).lastPathComponent).lineLimit(2).textSelection(.enabled) } }
+                    if !clip.url.isEmpty { field("原文") { Text(clip.url).foregroundStyle(Ink.soft).lineLimit(2).truncationMode(.middle).textSelection(.enabled) } }
+                    field("备注") { TextField("", text: $ui.note, prompt: Text("写点什么").foregroundStyle(Ink.faint), axis: .vertical).textFieldStyle(.plain).lineLimit(1...6).accessibilityLabel("备注") }
                 }
+                .padding(.top, 22)
+                if changed {
+                    Button("保存修改") { model.update(clip.id, title: ui.title, topic: ui.topic, note: ui.note) }.buttonStyle(PlainAction()).padding(.top, 14)
+                }
+                HStack(spacing: 16) {
+                    if clip.hasPDF { Button("再导出一份到桌面") { model.exportAgain(clip.id) }.buttonStyle(TextAction()) }
+                    Button("删除") { ui.confirming = true }.buttonStyle(TextAction())
+                }
+                .padding(.top, 22)
             }
-            .padding(14)
+            .frame(maxWidth: 560, alignment: .leading)
+            .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 32)
         }
         .onAppear(perform: load)
         .onChange(of: clip.title) { load() }
         .onChange(of: clip.topic) { load() }
-        .alert("删除这条新闻？", isPresented: $ui.confirming) {
+        .alert("删除这则新闻？", isPresented: $ui.confirming) {
             Button("删除", role: .destructive) { model.delete(clip.id) }
             Button("取消", role: .cancel) {}
         } message: { Text("应用里的记录和副本会删除，桌面上的 PDF 不受影响。") }
     }
 
+    private var byline: String {
+        let date = clip.publishedAt.isEmpty ? Clip.day(clip.createdAt) : clip.publishedAt
+        return [clip.source, date, clip.fullPage ? "整页打印版" : ""].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    private var reason: some View {
+        Text(clip.reason).font(.system(size: 12.5)).lineSpacing(3).textSelection(.enabled)
+            .foregroundStyle(failing ? Ink.text : Ink.soft)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Ink.notice)
+    }
+
+    private var actions: some View {
+        HStack(spacing: 8) {
+            if failing || clip.fullPage { Button("重试") { model.retry(clip.id) }.buttonStyle(failing ? AnyActionStyle(SealButton()) : AnyActionStyle(PlainAction())) }
+            if clip.hasPDF {
+                Button("打开 PDF") { model.openPDF(clip) }.buttonStyle(failing ? AnyActionStyle(PlainAction()) : AnyActionStyle(SealButton()))
+                Button("在 Finder 中显示") { model.reveal(clip) }.buttonStyle(PlainAction())
+            }
+            if !clip.url.isEmpty { Button("打开原链接") { model.openOriginal(clip) }.buttonStyle(PlainAction()) }
+        }
+    }
+
+    private func field<V: View>(_ name: String, @ViewBuilder _ value: () -> V) -> some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text(name).font(Type.title(12)).foregroundStyle(Ink.soft).frame(width: 34, alignment: .leading)
+                value().font(.system(size: 13)).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 9)
+            Rule()
+        }
+    }
+
     private func load() { ui.title = clip.title; ui.topic = clip.topic; ui.note = clip.note }
+}
+
+struct AnyActionStyle: ButtonStyle {
+    private let make: (Configuration) -> AnyView
+    init<S: ButtonStyle>(_ s: S) { make = { AnyView(s.makeBody(configuration: $0)) } }
+    func makeBody(configuration: Configuration) -> some View { make(configuration) }
 }
 
 @MainActor @Observable
@@ -233,39 +392,64 @@ struct SettingsView: View {
     @Bindable var ui: SettingsState
 
     var body: some View {
-        Form {
-            Section("Claude") {
-                SecureField("Anthropic API Key", text: $model.secrets.anthropicKey)
-                Text("只保存在这台 Mac 上，用来识别截图和建议主题。").font(.caption).foregroundStyle(.secondary)
-            }
-            Section("云端（网页版）") {
-                TextField("地址", text: $model.cloudURL)
-                SecureField("口令", text: $model.secrets.cloudPasscode)
-                Text(status).font(.caption).foregroundStyle(.secondary)
-            }
-            Section("心愿中枢（新闻分类）") {
-                if model.hubPaired {
-                    Text(hubStatus).font(.caption).foregroundStyle(model.hubError == nil ? Color.secondary : Color.red)
-                    HStack {
-                        Button("立即同步") { Task { await model.syncAll() } }
-                        Button("断开") { model.disconnectHub() }
-                    }
-                } else {
-                    SecureField("同步密码或配对码", text: $model.hubSecret)
-                    Button(model.hubConnecting ? "连接中…" : "连接") { Task { await model.connectHub() } }
-                        .disabled(model.hubSecret.trimmingCharacters(in: .whitespaces).isEmpty || model.hubConnecting)
-                    Text(model.hubError ?? "同步密码只用来配对，不会保存。").font(.caption).foregroundStyle(model.hubError == nil ? Color.secondary : Color.red)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("设置").font(Type.heavy(24)).kerning(2)
+                    DoubleRule()
                 }
+                section("Claude", note: "只保存在这台 Mac 上，用来识别截图和建议主题。") {
+                    row("API Key") { SecureField("", text: $model.secrets.anthropicKey).textFieldStyle(.plain) }
+                }
+                section("云端", note: status) {
+                    row("地址") { TextField("", text: $model.cloudURL).textFieldStyle(.plain) }
+                    row("口令") { SecureField("", text: $model.secrets.cloudPasscode).textFieldStyle(.plain) }
+                }
+                section("心愿中枢", note: model.hubPaired ? hubStatus : (model.hubError ?? "同步密码只用来配对，不会保存。")) {
+                    if model.hubPaired {
+                        HStack(spacing: 8) {
+                            Button("立即同步") { Task { await model.syncAll() } }.buttonStyle(PlainAction())
+                            Button("断开") { model.disconnectHub() }.buttonStyle(TextAction())
+                        }
+                        .padding(.vertical, 8)
+                    } else {
+                        row("密码") { SecureField("同步密码或配对码", text: $model.hubSecret).textFieldStyle(.plain) }
+                        Button(model.hubConnecting ? "连接中…" : "连接") { Task { await model.connectHub() } }
+                            .buttonStyle(PlainAction()).padding(.top, 8)
+                            .disabled(model.hubSecret.trimmingCharacters(in: .whitespaces).isEmpty || model.hubConnecting)
+                    }
+                }
+                section("网站登录", note: "大多数网站不用登录。付费站或被限制访问时，可以在这里登录一次。") {
+                    row("网址") { TextField("", text: $ui.site).textFieldStyle(.plain) }
+                    Button("打开登录窗口") { LoginWindow.open(ui.site) }.buttonStyle(PlainAction()).padding(.top, 8)
+                }
+                Button("保存设置") { model.saveSecrets() }.buttonStyle(SealButton()).padding(.top, 26)
             }
-            Section("网站登录（可选）") {
-                TextField("网址", text: $ui.site)
-                Button("打开登录窗口") { LoginWindow.open(ui.site) }
-                Text("大多数网站不用登录。付费站或被限制访问时，可以在这里登录一次。").font(.caption).foregroundStyle(.secondary)
-            }
-            Button("保存设置") { model.saveSecrets() }
+            .padding(.horizontal, 28).padding(.top, 34).padding(.bottom, 28)
         }
-        .formStyle(.grouped)
-        .frame(width: 480, height: 640)
+        .background(Ink.paper)
+        .foregroundStyle(Ink.text)
+        .frame(width: 500, height: 660)
+    }
+
+    private func section<V: View>(_ name: String, note: String, @ViewBuilder _ content: () -> V) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(name).font(Type.title(14)).padding(.top, 22).padding(.bottom, 6)
+            Rule()
+            content()
+            Text(note).font(.system(size: 11.5)).foregroundStyle(Ink.soft).lineSpacing(2).padding(.top, 7).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func row<V: View>(_ name: String, @ViewBuilder _ value: () -> V) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                Text(name).font(.system(size: 12.5)).foregroundStyle(Ink.soft).frame(width: 52, alignment: .leading)
+                value().font(.system(size: 13))
+            }
+            .padding(.vertical, 8)
+            Rule()
+        }
     }
 
     private var hubStatus: String {

@@ -1,6 +1,6 @@
 # 拾闻 / clip-collections
 
-把感兴趣的新闻存成 PDF。来源是链接或截图，PDF 放在这台 Mac 的 `~/Desktop/新闻/`。
+把感兴趣的新闻存成 PDF。来源是链接或截图，PDF 直接放在这台 Mac 的桌面。
 
 - **Mac 应用 ClipCollections**（Swift，菜单栏小程序加新闻列表窗口）：抓取网页、生成 PDF。
 - **网页版**（手机和电脑共用）：保存链接或截图，查看列表和状态。PDF 不上云。
