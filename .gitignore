@@ -1,0 +1,12 @@
+.build/
+.swiftpm/
+build/
+*.app
+node_modules/
+.DS_Store
+supabase/.temp/
+.env
+.env.*
+*.pem
+secrets.json
+probe-output/
