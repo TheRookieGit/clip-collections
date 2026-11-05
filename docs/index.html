@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="拾闻">
+<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1a18" media="(prefers-color-scheme: dark)">
+<title>拾闻</title>
+<style>
+:root{--bg:#f7f5f0;--card:#fffdf9;--ink:#23211d;--soft:#6c675d;--line:#e3ded3;--accent:#b0452c;--accent-ink:#fff;
+--wait:#8a6d1d;--wait-bg:#f6edcf;--run:#2c5f8a;--run-bg:#dfeaf3;--ok:#2f6b45;--ok-bg:#dfeee3;--warn:#a2541b;--warn-bg:#f8e6d4;--bad:#a4332d;--bad-bg:#f7dfdc}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1a18;--card:#262421;--ink:#ece8df;--soft:#a39d90;--line:#3a3733;--accent:#e0765b;--accent-ink:#1b1a18;
+--wait:#e0c26a;--wait-bg:#3b3219;--run:#8dbde3;--run-bg:#1f3242;--ok:#8fcfa5;--ok-bg:#1f3527;--warn:#eeaa74;--warn-bg:#40291a;--bad:#ef9690;--bad-bg:#42211f}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
+button,input,textarea,select{font:inherit;color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+h1{font-size:24px;margin:0;font-weight:650;letter-spacing:.02em}
+#mac{font-size:13px;color:var(--soft)}
+.add{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+.add.drag{border-color:var(--accent)}
+.row{display:flex;gap:8px}
+#link{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:16px}
+.btn{padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;white-space:nowrap;min-height:44px}
+.btn.main{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn:disabled{opacity:.5;cursor:default}
+.tray{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tray:empty{display:none}
+.tray figure{position:relative;margin:0}.tray img{width:64px;height:64px;object-fit:cover;border-radius:6px;display:block;border:1px solid var(--line)}
+.tray button{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);cursor:pointer;line-height:1;padding:0}
+.hint{font-size:13px;color:var(--soft);margin-top:8px}
+.filters{display:flex;gap:8px;margin-bottom:12px}
+#q{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:16px}
+#topic{max-width:40%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.item>button{all:unset;display:block;width:100%;box-sizing:border-box;padding:12px;cursor:pointer}
+.item>button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.title{font-weight:600;overflow-wrap:anywhere}
+.meta{font-size:13px;color:var(--soft);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.tag{font-size:12px;padding:1px 8px;border-radius:999px;font-weight:600}
+.pending{color:var(--wait);background:var(--wait-bg)}.processing{color:var(--run);background:var(--run-bg)}.saved{color:var(--ok);background:var(--ok-bg)}.incomplete{color:var(--warn);background:var(--warn-bg)}.failed{color:var(--bad);background:var(--bad-bg)}
+.detail{padding:0 12px 12px;border-top:1px solid var(--line)}
+.detail p{margin:10px 0;font-size:14px;overflow-wrap:anywhere}
+.detail a{color:var(--accent)}
+.reason{color:var(--warn)}
+.shots{display:flex;flex-direction:column;gap:8px;margin:10px 0}.shots img{width:100%;border-radius:6px;border:1px solid var(--line);display:block}
+.detail label{display:block;font-size:13px;color:var(--soft);margin-top:8px}
+.detail input,.detail textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:16px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.danger{color:var(--bad)}
+.empty{text-align:center;color:var(--soft);padding:32px 12px}
+#gate{max-width:360px;margin:18vh auto 0;padding:0 16px}
+#gate input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);margin:12px 0;font-size:16px}
+#gate .btn{width:100%}
+#err{color:var(--bad);font-size:14px;min-height:1.5em}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<main id="gate" hidden>
+  <h1>拾闻</h1>
+  <form id="gateForm">
+    <input id="pass" type="password" placeholder="口令" autocomplete="current-password" aria-label="口令">
+    <button class="btn main" type="submit">进入</button>
+    <div id="err" role="alert"></div>
+  </form>
+</main>
+<div class="wrap" id="app" hidden>
+  <header><h1>拾闻</h1><span id="mac"></span></header>
+  <section class="add" id="addBox">
+    <form class="row" id="addForm">
+      <input id="link" type="url" inputmode="url" placeholder="粘贴新闻链接" aria-label="新闻链接" autocomplete="off">
+      <button class="btn main" id="save" type="submit">保存</button>
+    </form>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="pick" type="button">选择截图</button>
+      <input id="file" type="file" accept="image/*" multiple hidden>
+    </div>
+    <div class="tray" id="tray"></div>
+    <div class="hint">几张截图合成一条新闻。也可以直接粘贴或拖入图片。</div>
+  </section>
+  <div class="filters">
+    <input id="q" type="search" placeholder="搜索" aria-label="搜索">
+    <select id="topic" aria-label="按主题筛选"></select>
+  </div>
+  <section id="list" aria-live="polite"></section>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+const DEFAULT_API = "https://gxhqguewzkvogtilfrbo.supabase.co/functions/v1/api";
+const STATUS = { pending: "待保存", processing: "处理中", saved: "已保存", incomplete: "图片不全", failed: "失败" };
+const MAX_SHOTS = 30, MAX_B64 = 7_500_000;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const uid = () => Date.now().toString(36) + Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => (b % 36).toString(36)).join("");
+const localDay = (iso) => { const d = new Date(iso); if (isNaN(d)) return ""; const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+const safeLink = (u) => /^https?:\/\//i.test(u || "") ? u : "";
+
+let passcode = store.get("passcode") || "";
+let clips = [], pending = [], mac = null, open = null, tray = [], urls = {}, timer = null;
+
+let toastTimer;
+function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2800); }
+
+async function api(action, body = {}) {
+  const r = await fetch(DEFAULT_API, { method: "POST", headers: { "content-type": "application/json", "x-passcode": passcode }, body: JSON.stringify({ action, ...body }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || "出错了，请稍后再试"); e.status = r.status; throw e; }
+  return j;
+}
+
+// The requests the Mac has not taken in yet, on top of what it last reported, so the page always shows the latest.
+function merged() {
+  const m = new Map(clips.map((c) => [c.id, c]));
+  for (const p of pending) {
+    if (p.op === "add") { if (!m.has(p.id)) m.set(p.id, { id: p.id, kind: p.kind, url: p.url || "", shots: p.shots || [], title: "", source: "", topic: "", note: "", reason: "", status: "pending", createdAt: p.createdAt }); }
+    else if (p.op === "delete") m.delete(p.id);
+    else if (m.has(p.id)) {
+      const c = { ...m.get(p.id) };
+      if (p.op === "retry") { c.status = "pending"; c.reason = ""; }
+      else for (const k of ["title", "topic", "note"]) if (p[k] !== undefined) c[k] = p[k];
+      m.set(p.id, c);
+    }
+  }
+  return [...m.values()].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+}
+
+function macText() {
+  if (!mac) return "";
+  if (mac.online) return "Mac 在线";
+  return mac.state === "sleeping" ? "Mac 已休眠，开机后处理" : mac.state === "quit" ? "Mac 应用已退出，打开后处理" : "Mac 离线，开机后处理";
+}
+
+function render() {
+  $("#mac").textContent = macText();
+  const all = merged();
+  const sel = $("#topic"), chosen = sel.value;
+  const topics = [...new Set(all.map((c) => c.topic).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh"));
+  sel.innerHTML = `<option value="">全部主题</option>` + topics.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  sel.value = topics.includes(chosen) ? chosen : "";
+  const q = $("#q").value.trim().toLowerCase();
+  const shown = all.filter((c) => (!sel.value || c.topic === sel.value) && (!q || [c.title, c.source, c.url, c.topic, c.note].join(" ").toLowerCase().includes(q)));
+  // Keeps what is being typed in an open item from being replaced by a refresh.
+  if (document.activeElement?.closest?.(".detail")) return;
+  $("#list").innerHTML = shown.length ? shown.map(card).join("") : `<div class="empty">${all.length ? "没有符合条件的新闻" : "还没有新闻。粘贴一个链接，或选择截图开始。"}</div>`;
+  if (open) loadShots(all.find((c) => c.id === open));
+}
+
+function card(c) {
+  const title = c.title || (c.kind === "shots" ? `截图 ${c.shots?.length || ""} 张` : c.url) || "未命名";
+  const date = c.publishedAt || localDay(c.createdAt);
+  const isOpen = open === c.id;
+  const link = safeLink(c.url);
+  return `<article class="item" data-id="${esc(c.id)}">
+    <button type="button" data-act="toggle" aria-expanded="${isOpen}">
+      <div class="title">${esc(title)}</div>
+      <div class="meta"><span class="tag ${esc(c.status)}">${esc(STATUS[c.status] || c.status)}</span>${c.fullPage ? "<span>整页版</span>" : ""}${c.topic ? `<span>${esc(c.topic)}</span>` : ""}${c.source ? `<span>${esc(c.source)}</span>` : ""}<span>${esc(date)}</span></div>
+    </button>
+    ${isOpen ? `<div class="detail">
+      ${c.reason ? `<p class="reason">${esc(c.reason)}</p>` : ""}
+      ${c.videoMissing ? `<p class="reason">视频没有保存，只保留了封面和文字。</p>` : ""}
+      ${link ? `<p><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">打开原链接</a></p>` : ""}
+      ${c.shots?.length ? `<div class="shots" data-shots></div>` : ""}
+      <label>标题<input data-f="title" value="${esc(c.title)}" maxlength="200"></label>
+      <label>主题<input data-f="topic" value="${esc(c.topic)}" maxlength="40"></label>
+      <label>备注<textarea data-f="note" rows="2" maxlength="2000">${esc(c.note)}</textarea></label>
+      <div class="actions">
+        <button class="btn" data-act="edit" type="button">保存修改</button>
+        ${c.status === "failed" || c.status === "incomplete" ? `<button class="btn" data-act="retry" type="button">重试</button>` : ""}
+        <button class="btn danger" data-act="delete" type="button">删除</button>
+      </div>
+    </div>` : ""}
+  </article>`;
+}
+
+async function loadShots(c) {
+  const box = $("[data-shots]");
+  if (!c || !box) return;
+  const need = c.shots.filter((p) => !urls[p]);
+  try {
+    if (need.length) Object.assign(urls, (await api("shot_urls", { paths: need })).urls);
+    box.innerHTML = c.shots.map((p) => urls[p] ? `<img src="${esc(urls[p])}" alt="截图" loading="lazy">` : "").join("");
+  } catch (e) { box.textContent = "截图打不开：" + e.message; }
+}
+
+async function refresh() {
+  try {
+    const j = await api("clips_get");
+    clips = j.clips; pending = j.pending; mac = j.mac;
+    render();
+  } catch (e) {
+    if (e.status === 401) signOut(); else $("#mac").textContent = "连不上云端";
+  }
+}
+
+function signOut() { passcode = ""; store.del("passcode"); $("#app").hidden = true; $("#gate").hidden = false; clearInterval(timer); }
+function enter() { $("#gate").hidden = true; $("#app").hidden = false; refresh(); clearInterval(timer); timer = setInterval(() => { if (!document.hidden) refresh(); }, 15000); }
+
+async function send(patch) {
+  const j = await api("clip_edit", { patch });
+  pending.push(j.patch); mac = j.mac; render();
+}
+
+// Long screenshots keep their full height: only the width limits the size, so the words stay readable.
+async function compress(file) {
+  const bmp = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  for (const [side, q] of [[1800, .86], [1500, .8], [1200, .72], [1000, .65]]) {
+    const scale = Math.min(1, side / bmp.width, 12000 / bmp.height);
+    canvas.width = Math.round(bmp.width * scale); canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const b64 = canvas.toDataURL("image/jpeg", q).split(",")[1];
+    if (b64.length <= MAX_B64) return b64;
+  }
+  throw new Error("这张截图太大了");
+}
+
+function addFiles(files) {
+  const imgs = [...files].filter((f) => f.type.startsWith("image/"));
+  for (const f of imgs) { if (tray.length < MAX_SHOTS) tray.push({ file: f, url: URL.createObjectURL(f) }); }
+  if (tray.length >= MAX_SHOTS) toast(`一条新闻最多 ${MAX_SHOTS} 张截图`);
+  drawTray();
+}
+function drawTray() {
+  $("#tray").innerHTML = tray.map((t, i) => `<figure><img src="${esc(t.url)}" alt="第 ${i + 1} 张"><button type="button" data-rm="${i}" aria-label="移除第 ${i + 1} 张">×</button></figure>`).join("");
+  $("#pick").textContent = tray.length ? "再加截图" : "选择截图";
+}
+
+async function save() {
+  const url = $("#link").value.trim();
+  if (!url && !tray.length) { toast("先粘贴链接或选择截图"); return; }
+  const btn = $("#save"); btn.disabled = true;
+  try {
+    const id = uid(), createdAt = new Date().toISOString();
+    if (url) {
+      if (!/^https?:\/\//i.test(url)) throw new Error("只支持 http/https 链接");
+      await send({ op: "add", id, kind: "link", url, createdAt });
+      $("#link").value = "";
+    }
+    if (tray.length) {
+      const shotId = url ? uid() : id, paths = [];
+      for (const [i, t] of tray.entries()) {
+        btn.textContent = `上传 ${i + 1}/${tray.length}`;
+        const path = `s/${shotId}/${i}.jpg`;
+        await api("shot_upload", { path, jpeg: await compress(t.file) });
+        paths.push(path);
+      }
+      await send({ op: "add", id: shotId, kind: "shots", shots: paths, createdAt });
+      tray.forEach((t) => URL.revokeObjectURL(t.url)); tray = []; drawTray();
+    }
+    toast(mac?.online ? "已保存，Mac 正在处理" : "已保存，等 Mac 开机后处理");
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = "保存"; }
+}
+
+$("#gateForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  passcode = $("#pass").value.trim();
+  $("#err").textContent = "";
+  try { await api("ping"); store.set("passcode", passcode); $("#pass").value = ""; enter(); }
+  catch (x) { passcode = ""; $("#err").textContent = x.message; }
+});
+$("#addForm").addEventListener("submit", (e) => { e.preventDefault(); save(); });
+$("#pick").addEventListener("click", () => $("#file").click());
+$("#file").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
+$("#tray").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { const [t] = tray.splice(+b.dataset.rm, 1); URL.revokeObjectURL(t.url); drawTray(); } });
+$("#q").addEventListener("input", render); $("#topic").addEventListener("change", render);
+document.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])]; if (f.length) { e.preventDefault(); addFiles(f); } });
+const box = $("#addBox");
+for (const t of ["dragenter", "dragover"]) box.addEventListener(t, (e) => { e.preventDefault(); box.classList.add("drag"); });
+box.addEventListener("dragleave", () => box.classList.remove("drag"));
+box.addEventListener("drop", (e) => { e.preventDefault(); box.classList.remove("drag"); addFiles(e.dataTransfer.files); });
+$("#list").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const art = b.closest(".item"), id = art.dataset.id;
+  try {
+    if (b.dataset.act === "toggle") { open = open === id ? null : id; document.activeElement?.blur?.(); render(); return; }
+    if (b.dataset.act === "retry") { await send({ op: "retry", id }); toast("已加入重试"); }
+    if (b.dataset.act === "delete") {
+      if (!confirm("删除这条新闻？桌面上的 PDF 不受影响。")) return;
+      open = null; document.activeElement?.blur?.(); await send({ op: "delete", id }); toast("已删除");
+    }
+    if (b.dataset.act === "edit") {
+      const patch = { op: "update", id };
+      art.querySelectorAll("[data-f]").forEach((f) => { patch[f.dataset.f] = f.value; });
+      document.activeElement?.blur?.(); await send(patch); toast("已保存修改");
+    }
+  } catch (x) { toast(x.message); }
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden && passcode) refresh(); });
+
+if (passcode) enter(); else $("#gate").hidden = false;
+</script>
+</body>
+</html>

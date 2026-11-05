@@ -8,16 +8,35 @@
 
 这个仓库是公开的，用来发布 GitHub Pages。这里只放代码，不放任何个人数据、口令或密钥。
 
-## 当前进度
+## 结构
 
-阶段 1：验证抓取。`Sources/ClipCapture` 是抓取引擎，`Sources/ClipProbe` 是命令行原型。
+- `Sources/ClipCapture`：抓取引擎和核心逻辑（PDF、导出、存储、Claude、云端客户端）。
+- `Sources/ClipCollections`：Mac 应用。
+- `Sources/ClipProbe`：命令行工具，用来诊断抓取和跑自测。
+- `supabase/`：表和 Edge Function `api`。所有表开 RLS 且没有 policy，只能通过函数读写。
+- `docs/index.html`：网页版，由 GitHub Pages 发布。
+
+## 开发
 
 ```sh
-swift build
-.build/debug/ClipProbe --selftest            # 不联网的检查
-.build/debug/ClipProbe "<链接>"               # 抓取，结果写到 probe-output/
-.build/debug/ClipProbe --login "<网址>"       # 打开窗口登录，登录后关闭窗口
+scripts/check.sh            # 自测，不联网，不碰真实数据
+scripts/build-app.sh        # 打包并安装到 /Applications/ahomemade
+.build/debug/ClipProbe "<链接>"          # 抓取一个链接，结果写到 probe-output/
 ```
+
+只需要 Command Line Tools。它不带 SwiftUI 的宏插件，所以界面状态放在 `@Observable` 类里，不用 `@State`。
+
+## 部署云端
+
+```sh
+supabase login                                   # 用拥有这个项目的账号
+supabase link --project-ref <project ref>        # 这里要输入数据库密码
+supabase db push
+supabase secrets set APP_PASSCODE=<自己定的口令>
+supabase functions deploy api --no-verify-jwt
+```
+
+然后在 Mac 应用的设置（⌘,）里填同一个口令。
 
 ## 第三方代码
 

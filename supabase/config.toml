@@ -1,0 +1,5 @@
+project_id = "clip-collections"
+
+[functions.api]
+# Access is guarded by our own passcode (APP_PASSCODE), not a Supabase login.
+verify_jwt = false

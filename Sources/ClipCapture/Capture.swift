@@ -18,6 +18,7 @@ public struct CaptureResult {
     public var publishedAt = ""
     public var isVideo = false
     public var textLength = 0
+    public var excerpt = ""                  // the start of the text, for Claude to name a topic from
     public var expectedImages: Int?          // the note's own count (Xiaohongshu) or images found in the article
     public var downloadedImages = 0
     public var renderedImages = 0            // decoded by the renderer
@@ -45,6 +46,14 @@ public final class Capturer: NSObject, WKNavigationDelegate {
     private var renderDir: URL?
 
     public init(readabilityJS: String = "") { self.readabilityJS = readabilityJS }
+
+    /// The Readability bundled with the app. Falls back to the repository copy for the command-line probe.
+    public static func bundledReadability() -> String? {
+        let name = "Readability-0.6.0"
+        let url = Bundle.main.url(forResource: name, withExtension: "js")
+            ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Resources/vendor/\(name).js")
+        return try? String(contentsOf: url, encoding: .utf8)
+    }
 
     public static func makeWebView(userAgent: String, frame: NSRect = NSRect(x: 0, y: 0, width: 1200, height: 900)) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -111,6 +120,7 @@ public final class Capturer: NSObject, WKNavigationDelegate {
             try await Task.detached { try URLGuard.checkResolved(url) }.value
             try? FileManager.default.removeItem(at: workDir) // files left by an earlier try would pass the count check
             try FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
+            guard !readabilityJS.isEmpty || XHS.isXHS(url) else { throw CaptureError("缺少正文提取组件") }
             if XHS.isXHS(url) { try await captureXHS(url, &r, workDir, outFile, savedAt) }
             else { try await captureArticle(url, &r, workDir, outFile, savedAt) }
         } catch {
@@ -150,14 +160,15 @@ public final class Capturer: NSObject, WKNavigationDelegate {
         }
         guard let note else {
             let f = r.finalURL
-            if f.contains("/404/sec_") || f.contains("xhs_sec_server") { throw CaptureError("小红书的安全限制拦下了这次访问：请在登录窗口登录后，过一会儿再重试，或改用截图") }
-            if f.contains("/login") || f.contains("captcha") { throw CaptureError("小红书要求登录或验证：请在登录窗口登录后重试，或改用截图") }
+            if f.contains("/404/sec_") || f.contains("xhs_sec_server") { throw CaptureError("小红书暂时限制了这次访问：可以过一会儿重试，也可以登录网站后重试，或者改用截图") }
+            if f.contains("/login") || f.contains("captcha") { throw CaptureError("小红书要求登录或验证：可以登录网站后重试，或者改用截图") }
             throw CaptureError("页面里没有找到笔记数据，笔记可能已删除或链接已失效")
         }
         r.title = note.title.isEmpty ? String(note.body.prefix(40)) : note.title
         r.source = note.author.isEmpty ? "小红书" : "小红书 · \(note.author)"
         r.isVideo = note.isVideo
         r.textLength = note.body.count
+        r.excerpt = String((note.title + "\n" + note.body).prefix(3000))
         r.expectedImages = note.expected
         let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
         r.publishedAt = note.publishedAt.map(df.string(from:)) ?? ""
@@ -200,6 +211,7 @@ public final class Capturer: NSObject, WKNavigationDelegate {
         r.source = o["site"] as? String ?? url.host ?? ""
         r.publishedAt = o["published"] as? String ?? ""
         r.textLength = o["textLength"] as? Int ?? 0
+        r.excerpt = String((r.title + "\n" + (o["text"] as? String ?? "")).prefix(3000))
         let addresses = (o["images"] as? [String] ?? []).filter { $0.hasPrefix("http") }
         let unique = Array(NSOrderedSet(array: addresses)) as? [String] ?? addresses
         r.expectedImages = unique.count

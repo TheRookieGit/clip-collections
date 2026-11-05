@@ -71,7 +71,7 @@ enum Scripts {
           title: article.title || document.title || '', byline: article.byline || '',
           site: article.siteName || meta('og:site_name') || location.hostname,
           published: article.publishedTime || meta('article:published_time','datePublished','pubdate','og:article:published_time','publishdate') || (t && t.textContent.trim()) || '',
-          content: box.innerHTML, images, textLength: article.length || 0, pageImages,
+          content: box.innerHTML, images, textLength: article.length || 0, pageImages, text: (box.textContent || '').slice(0, 3000),
         });
         """#
     }
