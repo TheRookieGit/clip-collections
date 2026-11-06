@@ -1,5 +1,5 @@
 import AppKit
-import ClipCapture
+import NewsCapture
 import SwiftUI
 
 @MainActor
@@ -34,8 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.delegate = self
         // Closing only hides the window; the queue and sync keep running from the menu bar.
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("ClipWindow")
-        if !window.setFrameUsingName("ClipWindow") { window.center() }
+        window.setFrameAutosaveName("NewsWindow")
+        if !window.setFrameUsingName("NewsWindow") { window.center() }
         NSApp.mainMenu = buildMenu()
         statusMenu = StatusMenu(model: model) { [weak self] in self?.showWindow() }
         if atLogin { NSApp.setActivationPolicy(.accessory) } else { showWindow() }

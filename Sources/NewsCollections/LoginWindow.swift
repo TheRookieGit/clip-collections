@@ -1,5 +1,5 @@
 import AppKit
-import ClipCapture
+import NewsCapture
 import WebKit
 
 /// A visible browser sharing the capture engine's data store, so a login here applies to later captures.

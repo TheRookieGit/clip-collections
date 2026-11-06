@@ -1,5 +1,5 @@
 import AppKit
-import ClipCapture
+import NewsCapture
 import Observation
 import UniformTypeIdentifiers
 
@@ -11,7 +11,7 @@ final class AppModel {
     static let xhsGap: TimeInterval = 30
 
     @ObservationIgnored let paths: Paths
-    @ObservationIgnored let store: ClipStore
+    @ObservationIgnored let store: NewsStore
     @ObservationIgnored private let capturer: Capturer
     @ObservationIgnored private var worker: Task<Void, Never>?
     @ObservationIgnored private var link: Task<Void, Never>?
@@ -19,7 +19,7 @@ final class AppModel {
     @ObservationIgnored private var lastXHS = Date.distantPast
     @ObservationIgnored private var syncing = false
 
-    var clips: [Clip] = []
+    var newsItems: [NewsItem] = []
     var secrets: Secrets
     var cloudURL: String { didSet { UserDefaults.standard.set(cloudURL, forKey: "cloudURL") } }
     /// Screenshots waiting to become one item.
@@ -36,30 +36,30 @@ final class AppModel {
     var hubPaired: Bool { !secrets.hubToken.isEmpty }
 
     var cloud: CloudAPI { CloudAPI(url: cloudURL.trimmingCharacters(in: .whitespacesAndNewlines), passcode: secrets.cloudPasscode.trimmingCharacters(in: .whitespacesAndNewlines)) }
-    var visible: [Clip] { clips.filter { !$0.deleted }.sorted { $0.createdAt > $1.createdAt } }
+    var visible: [NewsItem] { newsItems.filter { !$0.deleted }.sorted { $0.createdAt > $1.createdAt } }
     var topics: [String] { Array(Set(visible.map(\.topic).filter { !$0.isEmpty })).sorted() }
     var hasKey: Bool { !secrets.anthropicKey.trimmingCharacters(in: .whitespaces).isEmpty }
 
     init(paths: Paths = AppModel.defaultPaths) throws {
         self.paths = paths
         try paths.ensure()
-        store = try ClipStore(file: paths.database)
+        store = try NewsStore(file: paths.database)
         secrets = Secrets.load(paths.secrets)
         cloudURL = UserDefaults.standard.string(forKey: "cloudURL") ?? Self.defaultCloud
         capturer = Capturer(readabilityJS: Capturer.bundledReadability() ?? "")
         #if DEBUG
-        if let u = ProcessInfo.processInfo.environment["CLIP_TEST_CLOUD"] { cloudURL = u; secrets.cloudPasscode = "test-only" }
-        if let t = ProcessInfo.processInfo.environment["CLIP_TEST_HUB_TOKEN"] { secrets.hubToken = t }
+        if let u = ProcessInfo.processInfo.environment["NEWS_TEST_CLOUD"] { cloudURL = u; secrets.cloudPasscode = "test-only" }
+        if let t = ProcessInfo.processInfo.environment["NEWS_TEST_HUB_TOKEN"] { secrets.hubToken = t }
         #endif
-        clips = store.all()
+        newsItems = store.all()
         // Interrupted when the app last stopped.
-        for c in clips where c.status == .processing { change(c.id) { $0.status = .pending } }
+        for c in newsItems where c.status == .processing { change(c.id) { $0.status = .pending } }
     }
 
     /// Debug builds can run against a throwaway folder, so a test never touches real data or the real desktop.
     nonisolated static var defaultPaths: Paths {
         #if DEBUG
-        if let root = ProcessInfo.processInfo.environment["CLIP_TEST_ROOT"] {
+        if let root = ProcessInfo.processInfo.environment["NEWS_TEST_ROOT"] {
             let r = URL(fileURLWithPath: root)
             return Paths(root: r.appendingPathComponent("data"), desktop: r.appendingPathComponent("桌面"))
         }
@@ -75,23 +75,23 @@ final class AppModel {
 
     // MARK: Changing items
 
-    private func change(_ id: String, _ edit: (inout Clip) -> Void) {
-        guard let i = clips.firstIndex(where: { $0.id == id }) else { return }
-        edit(&clips[i])
-        clips[i].updatedAt = Date()
-        clips[i].dirty = true
-        store.put(clips[i])
+    private func change(_ id: String, _ edit: (inout NewsItem) -> Void) {
+        guard let i = newsItems.firstIndex(where: { $0.id == id }) else { return }
+        edit(&newsItems[i])
+        newsItems[i].updatedAt = Date()
+        newsItems[i].dirty = true
+        store.put(newsItems[i])
         schedulePush()
     }
 
-    private func insert(_ c: Clip) {
-        clips.append(c)
+    private func insert(_ c: NewsItem) {
+        newsItems.append(c)
         store.put(c)
         schedulePush()
         runQueue()
     }
 
-    func clip(_ id: String) -> Clip? { clips.first { $0.id == id } }
+    func newsItem(_ id: String) -> NewsItem? { newsItems.first { $0.id == id } }
 
     func addLink(_ text: String) {
         guard let link = LinkText.firstURL(text) ?? URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)).map(\.absoluteString), !link.isEmpty else {
@@ -106,13 +106,13 @@ final class AppModel {
             notice = "这条已经保存过了：\(same.displayTitle)"
             return
         }
-        insert(Clip(kind: .link, url: link))
+        insert(NewsItem(kind: .link, url: link))
     }
 
     /// Keeps the files as they are: the original pictures.
     func addShots(_ files: [URL]) {
         guard !files.isEmpty else { return }
-        var c = Clip(kind: .shots)
+        var c = NewsItem(kind: .shots)
         let dir = paths.shotDir(c.id)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -154,13 +154,13 @@ final class AppModel {
 
     private func seedForDesign() {
         let day: TimeInterval = 86400
-        func add(_ title: String, _ source: String, _ topic: String, _ date: String, _ status: ClipStatus, _ age: TimeInterval, reason: String = "", url: String = "https://example.com/a", shots: Int = 0, full: Bool = false, video: Bool = false, want: Int? = nil, have: Int? = nil) {
-            var c = Clip(kind: shots > 0 ? .shots : .link, url: url, now: Date().addingTimeInterval(-age))
+        func add(_ title: String, _ source: String, _ topic: String, _ date: String, _ status: NewsStatus, _ age: TimeInterval, reason: String = "", url: String = "https://example.com/a", shots: Int = 0, full: Bool = false, video: Bool = false, want: Int? = nil, have: Int? = nil) {
+            var c = NewsItem(kind: shots > 0 ? .shots : .link, url: url, now: Date().addingTimeInterval(-age))
             c.title = title; c.source = source; c.topic = topic; c.publishedAt = date; c.status = status; c.reason = reason; c.fullPage = full; c.videoMissing = video
             c.expectedImages = want; c.embeddedImages = have; c.hasPDF = status == .saved || status == .incomplete
             c.dirty = false; c.shotFiles = (0..<shots).map { "\($0).png" }
             if status == .saved { c.exportedAt = Date(); c.desktopFile = "/Users/x/Desktop/2026-11-04 \(title).pdf" }
-            clips.append(c)
+            newsItems.append(c)
         }
         add("美联储利率决议后，长端美债收益率为何继续上行", "财经观察", "投资", "2026-11-03", .saved, 3600, want: 6, have: 6)
         add("中央政治局会议释放的五个信号", "新华社", "政策", "2026-11-04", .processing, 600, url: "https://example.com/b")
@@ -174,7 +174,7 @@ final class AppModel {
 
     /// A test states what is in the list and sends text or files, as a paste would.
     func runTestCommands() {
-        guard let file = ProcessInfo.processInfo.environment["CLIP_TEST_ROOT"].map({ URL(fileURLWithPath: $0).appendingPathComponent("commands") }) else { return }
+        guard let file = ProcessInfo.processInfo.environment["NEWS_TEST_ROOT"].map({ URL(fileURLWithPath: $0).appendingPathComponent("commands") }) else { return }
         Task { [weak self] in
             var done = 0
             while let self {
@@ -192,16 +192,16 @@ final class AppModel {
                     default: break
                     }
                 }
-                let state = self.clips.map { ["id": $0.id, "status": $0.status.rawValue, "title": $0.displayTitle, "reason": $0.reason, "deleted": "\($0.deleted)", "desktop": $0.desktopFile ?? "", "dirty": "\($0.dirty)"] }
+                let state = self.newsItems.map { ["id": $0.id, "status": $0.status.rawValue, "title": $0.displayTitle, "reason": $0.reason, "deleted": "\($0.deleted)", "desktop": $0.desktopFile ?? "", "dirty": "\($0.dirty)"] }
                 if let d = try? JSONSerialization.data(withJSONObject: state) { try? d.write(to: file.deletingLastPathComponent().appendingPathComponent("state.json")) }
             }
         }
     }
     #endif
 
-    func openPDF(_ c: Clip) { NSWorkspace.shared.open(paths.pdf(c.id)) }
+    func openPDF(_ c: NewsItem) { NSWorkspace.shared.open(paths.pdf(c.id)) }
 
-    func reveal(_ c: Clip) {
+    func reveal(_ c: NewsItem) {
         let desktop = c.desktopFile.map { URL(fileURLWithPath: $0) }
         if let desktop, FileManager.default.fileExists(atPath: desktop.path) {
             NSWorkspace.shared.activateFileViewerSelecting([desktop])
@@ -211,13 +211,13 @@ final class AppModel {
         }
     }
 
-    func openOriginal(_ c: Clip) {
+    func openOriginal(_ c: NewsItem) {
         if let u = URL(string: c.url), (try? URLGuard.check(u)) != nil { NSWorkspace.shared.open(u) }
     }
 
     /// Asked for by hand: a new copy, even if the earlier one was moved away.
     func exportAgain(_ id: String) {
-        guard let c = clip(id), c.hasPDF else { return }
+        guard let c = newsItem(id), c.hasPDF else { return }
         do {
             let file = try Exporter.export(pdf: paths.pdf(id), title: c.displayTitle, date: Date(), to: paths.desktop)
             change(id) { $0.exportedAt = Date(); $0.desktopFile = file.path }
@@ -277,13 +277,13 @@ final class AppModel {
     }
 
     private func process(_ id: String) async {
-        guard let c = clip(id) else { return }
+        guard let c = newsItem(id) else { return }
         if c.kind == .link, let u = URL(string: c.url), XHS.isXHS(u) {
             let wait = Self.xhsGap - Date().timeIntervalSince(lastXHS)
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
             lastXHS = Date()
         }
-        guard clip(id)?.status == .pending, clip(id)?.deleted == false else { return }
+        guard newsItem(id)?.status == .pending, newsItem(id)?.deleted == false else { return }
         change(id) { $0.status = .processing; $0.reason = "" }
         await sync()
         switch c.kind {
@@ -294,7 +294,7 @@ final class AppModel {
         await syncAll()
     }
 
-    private func processLink(_ c: Clip) async {
+    private func processLink(_ c: NewsItem) async {
         let r = await capturer.capture(c.url, workDir: paths.work.appendingPathComponent(c.id), outFile: paths.work.appendingPathComponent(c.id + ".pdf"))
         defer { try? FileManager.default.removeItem(at: paths.work.appendingPathComponent(c.id + ".pdf")) }
         guard r.status != .failed, let made = r.pdf else {
@@ -309,7 +309,7 @@ final class AppModel {
             return
         }
         var topic = ""
-        if hasKey, !(clip(c.id)?.topicEdited ?? false), !r.excerpt.isEmpty {
+        if hasKey, !(newsItem(c.id)?.topicEdited ?? false), !r.excerpt.isEmpty {
             topic = (try? await ClaudeAPI.recognize(text: r.excerpt, topics: topics, transport: ClaudeAPI.live(apiKey: secrets.anthropicKey)))?.topic ?? ""
         }
         change(c.id) { x in
@@ -328,10 +328,10 @@ final class AppModel {
         exportIfDue(c.id)
     }
 
-    private func processShots(_ c: Clip) async {
+    private func processShots(_ c: NewsItem) async {
         do {
             try await fetchShots(c.id)
-            guard let c = clip(c.id) else { return }
+            guard let c = newsItem(c.id) else { return }
             let dir = paths.shotDir(c.id)
             let files = c.shotFiles.map { dir.appendingPathComponent($0) }
             var found: Recognized?
@@ -350,7 +350,7 @@ final class AppModel {
                     if !x.topicEdited, !found.topic.isEmpty { x.topic = found.topic }
                 }
             }
-            guard let now = clip(c.id) else { return }
+            guard let now = newsItem(c.id) else { return }
             let meta = ShotPDF.Meta(title: now.displayTitle, source: now.source, publishedAt: now.publishedAt, link: "", savedAt: Date())
             try ShotPDF.build(images: files, meta: meta, to: paths.pdf(c.id))
             change(c.id) { $0.hasPDF = true; $0.status = .saved; $0.reason = note }
@@ -362,7 +362,7 @@ final class AppModel {
 
     /// Screenshots sent from the web page, fetched through signed links on this project's own host.
     private func fetchShots(_ id: String) async throws {
-        guard let c = clip(id), c.shotFiles.isEmpty else { return }
+        guard let c = newsItem(id), c.shotFiles.isEmpty else { return }
         if c.cloudShots.isEmpty {
             try await fetchHubShots(c)
             return
@@ -385,7 +385,7 @@ final class AppModel {
 
     /// Only a complete item, and only once: a file the user moved away is not made again.
     private func exportIfDue(_ id: String) {
-        guard let c = clip(id), c.status == .saved, c.hasPDF, c.exportedAt == nil else { return }
+        guard let c = newsItem(id), c.status == .saved, c.hasPDF, c.exportedAt == nil else { return }
         do {
             let file = try Exporter.export(pdf: paths.pdf(id), title: c.displayTitle, date: Date(), to: paths.desktop)
             change(id) { $0.exportedAt = Date(); $0.desktopFile = file.path }
@@ -440,21 +440,21 @@ final class AppModel {
         guard let id = p["id"] as? String else { return }
         switch p["op"] as? String {
         case "add":
-            guard clip(id) == nil else { return }
-            var c = Clip(id: id, kind: p["kind"] as? String == "shots" ? .shots : .link, url: p["url"] as? String ?? "")
+            guard newsItem(id) == nil else { return }
+            var c = NewsItem(id: id, kind: p["kind"] as? String == "shots" ? .shots : .link, url: p["url"] as? String ?? "")
             if let s = p["createdAt"] as? String, let d = Self.date(s) { c.createdAt = d }
             c.cloudShots = p["shots"] as? [String] ?? []
             if c.kind == .link, URL(string: c.url).flatMap({ try? URLGuard.check($0) }) == nil {
                 c.status = .failed
                 c.reason = "只支持公开的 http/https 链接"
             }
-            clips.append(c)
+            newsItems.append(c)
             store.put(c)
         case "update":
-            guard let c = clip(id) else { return }
+            guard let c = newsItem(id) else { return }
             update(id, title: p["title"] as? String ?? c.title, topic: p["topic"] as? String ?? c.topic, note: p["note"] as? String ?? c.note)
         case "delete": delete(id)
-        case "retry": if clip(id)?.status == .failed || clip(id)?.status == .incomplete { change(id) { $0.status = .pending; $0.reason = "" } }
+        case "retry": if newsItem(id)?.status == .failed || newsItem(id)?.status == .incomplete { change(id) { $0.status = .pending; $0.reason = "" } }
         default: break
         }
     }
@@ -468,7 +468,7 @@ final class AppModel {
 
     /// Screenshots pasted on this Mac, so the web page can show them too. Originals stay here.
     private func uploadShots() async throws {
-        for c in clips where !c.deleted && c.kind == .shots && c.cloudShots.isEmpty && !c.shotFiles.isEmpty {
+        for c in newsItems where !c.deleted && c.kind == .shots && c.cloudShots.isEmpty && !c.shotFiles.isEmpty {
             var done: [String] = []
             for (i, name) in c.shotFiles.enumerated() {
                 guard let jpeg = CloudAPI.webJPEG(paths.shotDir(c.id).appendingPathComponent(name)) else { throw CaptureError("截图压缩失败") }
@@ -481,37 +481,37 @@ final class AppModel {
     }
 
     private func pushChanges() async throws {
-        let gone = clips.filter { $0.deleted && $0.cloudGone != true }.prefix(200)
+        let gone = newsItems.filter { $0.deleted && $0.cloudGone != true }.prefix(200)
         if !gone.isEmpty {
-            try await cloud.call(["action": "clips_delete", "ids": gone.map(\.id)])
+            try await cloud.call(["action": "news_delete", "ids": gone.map(\.id)])
             for c in gone { markGone(c.id) }
             reapTombstones()
         }
-        let dirty = clips.filter { $0.dirty && !$0.deleted }.prefix(200)
+        let dirty = newsItems.filter { $0.dirty && !$0.deleted }.prefix(200)
         guard !dirty.isEmpty else { return }
-        try await cloud.call(["action": "clips_push", "clips": dirty.map(\.cloudRow)])
+        try await cloud.call(["action": "news_push", "newsItems": dirty.map(\.cloudRow)])
         for sent in dirty {
             // Changed again while this was on its way: stays marked for the next push.
-            guard let i = clips.firstIndex(where: { $0.id == sent.id }), clips[i].updatedAt == sent.updatedAt else { continue }
-            clips[i].dirty = false
-            store.put(clips[i])
+            guard let i = newsItems.firstIndex(where: { $0.id == sent.id }), newsItems[i].updatedAt == sent.updatedAt else { continue }
+            newsItems[i].dirty = false
+            store.put(newsItems[i])
         }
     }
 
     private func markGone(_ id: String) {
-        guard let i = clips.firstIndex(where: { $0.id == id }) else { return }
-        clips[i].cloudGone = true
-        store.put(clips[i])
+        guard let i = newsItems.firstIndex(where: { $0.id == id }) else { return }
+        newsItems[i].cloudGone = true
+        store.put(newsItems[i])
     }
 
     /// A deleted item goes for good once every side that has it has heard.
     private func reapTombstones() {
-        for c in clips where c.deleted {
+        for c in newsItems where c.deleted {
             let cloudDone = c.cloudGone == true || !cloud.configured
             let hubDone = !hubPaired || c.hubSig == Hub.signature(c) || (c.hubSig == nil && c.hubItem == nil)
             if cloudDone && hubDone {
                 store.remove(c.id)
-                clips.removeAll { $0.id == c.id }
+                newsItems.removeAll { $0.id == c.id }
             }
         }
     }
@@ -560,7 +560,7 @@ final class AppModel {
         for item in got.items {
             guard let id = item["id"] as? String else { continue }
             let deleted = item["deleted"] as? Bool ?? false
-            if let c = clip(id) {
+            if let c = newsItem(id) {
                 if c.deleted || c.hubUpdatedAt == item["updatedAt"] as? String { continue }
                 if deleted {
                     change(id) { x in x.deleted = true; x.status = .saved; x.hubSig = nil; Hub.merge(item, into: &x); x.deleted = true }
@@ -568,9 +568,9 @@ final class AppModel {
                 } else {
                     change(id) { Hub.merge(item, into: &$0) }
                 }
-            } else if !deleted, var c = Hub.clip(from: item) {
+            } else if !deleted, var c = Hub.newsItem(from: item) {
                 c.dirty = true
-                clips.append(c)
+                newsItems.append(c)
                 store.put(c)
                 added = true
             }
@@ -581,7 +581,7 @@ final class AppModel {
 
     /// Images first: an item's screenshots must already be there when it lands.
     private func pushHub() async throws {
-        for c in clips where !c.deleted && c.kind == .shots && (c.hubImages ?? []).isEmpty && !c.shotFiles.isEmpty {
+        for c in newsItems where !c.deleted && c.kind == .shots && (c.hubImages ?? []).isEmpty && !c.shotFiles.isEmpty {
             var ids: [String] = []
             for (i, name) in c.shotFiles.enumerated() {
                 guard let jpeg = CloudAPI.webJPEG(paths.shotDir(c.id).appendingPathComponent(name), maxBase64: 3_900_000) else { throw CaptureError("截图压缩失败") }
@@ -589,37 +589,37 @@ final class AppModel {
                 try await Hub.putImage(token: secrets.hubToken, id: id, jpeg: jpeg, transport: hubTransport)
                 ids.append(id)
             }
-            if let n = clips.firstIndex(where: { $0.id == c.id }) { clips[n].hubImages = ids; store.put(clips[n]) }
+            if let n = newsItems.firstIndex(where: { $0.id == c.id }) { newsItems[n].hubImages = ids; store.put(newsItems[n]) }
         }
-        let due = clips.filter { $0.hubSig != Hub.signature($0) && !($0.deleted && $0.hubSig == nil && $0.hubItem == nil) }
+        let due = newsItems.filter { $0.hubSig != Hub.signature($0) && !($0.deleted && $0.hubSig == nil && $0.hubItem == nil) }
         for part in stride(from: 0, to: due.count, by: 100) {
             let chunk = Array(due[part..<min(part + 100, due.count)])
             let now = Date()
             let items = chunk.map { Hub.item(for: $0, now: now) }
             try await Hub.put(token: secrets.hubToken, items: items, transport: hubTransport)
             for (c, item) in zip(chunk, items) {
-                guard let i = clips.firstIndex(where: { $0.id == c.id }) else { continue }
-                clips[i].hubUpdatedAt = item["updatedAt"] as? String
-                clips[i].hubSig = Hub.signature(c)
-                if let d = try? JSONSerialization.data(withJSONObject: item) { clips[i].hubItem = String(data: d, encoding: .utf8) }
-                store.put(clips[i])
+                guard let i = newsItems.firstIndex(where: { $0.id == c.id }) else { continue }
+                newsItems[i].hubUpdatedAt = item["updatedAt"] as? String
+                newsItems[i].hubSig = Hub.signature(c)
+                if let d = try? JSONSerialization.data(withJSONObject: item) { newsItems[i].hubItem = String(data: d, encoding: .utf8) }
+                store.put(newsItems[i])
             }
         }
     }
 
     private func reportSaved() async throws {
-        let due = clips.filter { !$0.deleted && $0.status == .saved && $0.hasPDF && $0.hubFulfilled != true && $0.hubSig != nil }
+        let due = newsItems.filter { !$0.deleted && $0.status == .saved && $0.hasPDF && $0.hubFulfilled != true && $0.hubSig != nil }
         guard !due.isEmpty else { return }
         try await Hub.fulfill(token: secrets.hubToken, rows: due.map { Hub.fulfillRow($0) }, transport: hubTransport)
         for c in due {
-            guard let i = clips.firstIndex(where: { $0.id == c.id }) else { continue }
-            clips[i].hubFulfilled = true
-            store.put(clips[i])
+            guard let i = newsItems.firstIndex(where: { $0.id == c.id }) else { continue }
+            newsItems[i].hubFulfilled = true
+            store.put(newsItems[i])
         }
     }
 
     /// Screenshots added on the hub page, read from its image store.
-    private func fetchHubShots(_ c: Clip) async throws {
+    private func fetchHubShots(_ c: NewsItem) async throws {
         guard let ids = c.hubImages, !ids.isEmpty else { return }
         guard hubPaired else { throw CaptureError("没有连接心愿中枢，读不到截图") }
         let dir = paths.shotDir(c.id)

@@ -118,7 +118,7 @@ const localDay = (iso) => { const d = new Date(iso); if (isNaN(d)) return ""; co
 const safeLink = (u) => /^https?:\/\//i.test(u || "") ? u : "";
 
 let passcode = store.get("passcode") || "";
-let clips = [], pending = [], mac = null, open = null, tray = [], urls = {}, timer = null, topic = "";
+let newsItems = [], pending = [], mac = null, open = null, tray = [], urls = {}, timer = null, topic = "";
 
 let toastTimer;
 function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2800); }
@@ -132,7 +132,7 @@ async function api(action, body = {}) {
 
 // The requests the Mac has not taken in yet, on top of what it last reported, so the page always shows the latest.
 function merged() {
-  const m = new Map(clips.map((c) => [c.id, c]));
+  const m = new Map(newsItems.map((c) => [c.id, c]));
   for (const p of pending) {
     if (p.op === "add") { if (!m.has(p.id)) m.set(p.id, { id: p.id, kind: p.kind, url: p.url || "", shots: p.shots || [], title: "", source: "", topic: "", note: "", reason: "", status: "pending", createdAt: p.createdAt }); }
     else if (p.op === "delete") m.delete(p.id);
@@ -223,8 +223,8 @@ async function loadShots(c) {
 
 async function refresh() {
   try {
-    const j = await api("clips_get");
-    clips = j.clips; pending = j.pending; mac = j.mac;
+    const j = await api("news_get");
+    newsItems = j.newsItems; pending = j.pending; mac = j.mac;
     render();
   } catch (e) {
     if (e.status === 401) signOut(); else $("#mac").textContent = "连不上云端";
@@ -235,7 +235,7 @@ function signOut() { passcode = ""; store.del("passcode"); $("#app").hidden = tr
 function enter() { $("#gate").hidden = true; $("#app").hidden = false; refresh(); clearInterval(timer); timer = setInterval(() => { if (!document.hidden) refresh(); }, 15000); }
 
 async function send(patch) {
-  const j = await api("clip_edit", { patch });
+  const j = await api("news_edit", { patch });
   pending.push(j.patch); mac = j.mac; render();
 }
 

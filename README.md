@@ -1,8 +1,8 @@
-# 拾闻 / clip-collections
+# 拾闻 / news-collections
 
 把感兴趣的新闻存成 PDF。来源是链接或截图，PDF 直接放在这台 Mac 的桌面。
 
-- **Mac 应用 ClipCollections**（Swift，菜单栏小程序加新闻列表窗口）：抓取网页、生成 PDF。
+- **Mac 应用 NewsCollections**（Swift，菜单栏小程序加新闻列表窗口）：抓取网页、生成 PDF。
 - **网页版**（手机和电脑共用）：保存链接或截图，查看列表和状态。PDF 不上云。
 - 接入[心愿中枢](https://therookiegit.github.io/my-collections/)的「新闻」分类。
 
@@ -10,9 +10,9 @@
 
 ## 结构
 
-- `Sources/ClipCapture`：抓取引擎和核心逻辑（PDF、导出、存储、Claude、云端客户端）。
-- `Sources/ClipCollections`：Mac 应用。
-- `Sources/ClipProbe`：命令行工具，用来诊断抓取和跑自测。
+- `Sources/NewsCapture`：抓取引擎和核心逻辑（PDF、导出、存储、Claude、云端客户端）。
+- `Sources/NewsCollections`：Mac 应用。
+- `Sources/NewsProbe`：命令行工具，用来诊断抓取和跑自测。
 - `supabase/`：表和 Edge Function `api`。所有表开 RLS 且没有 policy，只能通过函数读写。
 - `docs/index.html`：网页版，由 GitHub Pages 发布。
 
@@ -21,7 +21,7 @@
 ```sh
 scripts/check.sh            # 自测，不联网，不碰真实数据
 scripts/build-app.sh        # 打包并安装到 /Applications/ahomemade
-.build/debug/ClipProbe "<链接>"          # 抓取一个链接，结果写到 probe-output/
+.build/debug/NewsProbe "<链接>"          # 抓取一个链接，结果写到 probe-output/
 ```
 
 只需要 Command Line Tools。它不带 SwiftUI 的宏插件，所以界面状态放在 `@Observable` 类里，不用 `@State`。
@@ -45,7 +45,7 @@ supabase functions deploy api --no-verify-jwt
 - 中枢新增的新闻进入拾闻的队列，拾闻新增的新闻写回中枢，两边用同一个 id。
 - PDF 生成成功后通过 `mc_fulfill_put` 回报，中枢显示「已保存」。状态不写进条目 JSON。
 - 两边同时改同一条时，中枢的改动优先。
-- 需要 my-collections 的迁移 `006_clipcollections.sql`。
+- 需要 my-collections 的迁移 `009_newscollections.sql`。
 
 ## 第三方代码
 

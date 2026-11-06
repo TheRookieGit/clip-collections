@@ -1,5 +1,5 @@
 import AppKit
-import ClipCapture
+import NewsCapture
 import ServiceManagement
 
 /// The menu bar icon that keeps the app reachable with no window open. Rebuilt each time it opens.

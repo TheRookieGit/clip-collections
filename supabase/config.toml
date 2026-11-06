@@ -1,4 +1,4 @@
-project_id = "clip-collections"
+project_id = "news-collections"
 
 [functions.api]
 # Access is guarded by our own passcode (APP_PASSCODE), not a Supabase login.

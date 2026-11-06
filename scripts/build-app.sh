@@ -1,12 +1,12 @@
 #!/bin/sh
-# Build ClipCollections.app with SwiftPM (Command Line Tools are enough) and install it.
+# Build NewsCollections.app with SwiftPM (Command Line Tools are enough) and install it.
 #   scripts/build-app.sh            -> build + install to /Applications/ahomemade
 #   INSTALL_DIR=... scripts/build-app.sh
 set -e
 cd "$(dirname "$0")/.."
 
 INSTALL_DIR="${INSTALL_DIR:-/Applications/ahomemade}"
-NAME="ClipCollections"
+NAME="NewsCollections"
 APP="build/$NAME.app"
 VERSION="0.1.0"
 
@@ -28,7 +28,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleName</key><string>$NAME</string>
     <key>CFBundleDisplayName</key><string>拾闻</string>
-    <key>CFBundleIdentifier</key><string>com.therookiegit.ClipCollections</string>
+    <key>CFBundleIdentifier</key><string>com.therookiegit.NewsCollections</string>
     <key>CFBundleExecutable</key><string>$NAME</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>

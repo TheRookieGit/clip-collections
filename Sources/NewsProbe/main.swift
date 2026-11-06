@@ -1,10 +1,10 @@
 import AppKit
-import ClipCapture
+import NewsCapture
 import WebKit
 
 // Stage 1 prototype.
-//   ClipProbe <link>…                 capture each link into probe-output/ and print what reached the PDF
-//   ClipProbe --login <site>          open a visible window to log in; close it when done
+//   NewsProbe <link>…                 capture each link into probe-output/ and print what reached the PDF
+//   NewsProbe --login <site>          open a visible window to log in; close it when done
 // Readability is read from Resources/vendor (the app bundles the same file).
 
 setvbuf(stdout, nil, _IOLBF, 0)
@@ -53,7 +53,7 @@ NSApplication.shared.setActivationPolicy(args.first == "--login" ? .regular : .a
     expect(XHS.parse(json: short)?.expected == 6, "imageList 比页面计数少时，以页面计数为准")
     expect(XHS.noteID(URL(string: "https://www.xiaohongshu.com/explore/6543210fedcba9876543210f?xsec_token=x")!) == "6543210fedcba9876543210f", "解析笔记 id")
 
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("clip-selftest-\(UUID())")
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("news-selftest-\(UUID())")
     defer { try? FileManager.default.removeItem(at: dir) }
     let r = await Capturer().renderFixture(dir: dir)
     print("  图片：渲染 \(r.renderedImages)，PDF 实含 \(r.pdfImages)，页数 \(r.pdfPages)")
@@ -93,8 +93,8 @@ NSApplication.shared.setActivationPolicy(args.first == "--login" ? .regular : .a
     try? FileManager.default.copyItem(at: out, to: URL(fileURLWithPath: "probe-output/selftest-shots.pdf"))
 
     // Store and secrets
-    if let store = try? ClipStore(file: dir.appendingPathComponent("s.sqlite")) {
-        var c = Clip(kind: .link, url: "https://a.com/x"); c.title = "标题"; c.exportedAt = Date()
+    if let store = try? NewsStore(file: dir.appendingPathComponent("s.sqlite")) {
+        var c = NewsItem(kind: .link, url: "https://a.com/x"); c.title = "标题"; c.exportedAt = Date()
         store.put(c); store.setMeta("k", "v")
         expect(store.all().first?.title == "标题" && store.all().first?.exportedAt != nil && store.meta("k") == "v", "SQLite 读写，记录导出状态")
         store.remove(c.id); expect(store.all().isEmpty, "SQLite 删除")
@@ -104,7 +104,7 @@ NSApplication.shared.setActivationPolicy(args.first == "--login" ? .regular : .a
     try? sec.save(sf)
     let mode = (try? FileManager.default.attributesOfItem(atPath: sf.path)[.posixPermissions] as? Int) ?? 0
     expect(mode == 0o600 && Secrets.load(sf) == sec, "secrets.json 权限 0600")
-    let row = Clip(kind: .link, url: "https://a.com").cloudRow
+    let row = NewsItem(kind: .link, url: "https://a.com").cloudRow
     expect(row["desktopFile"] == nil && row["hasPDF"] == nil, "上云字段不含本地路径")
 
     // Old files keep working when fields are added
@@ -115,7 +115,7 @@ NSApplication.shared.setActivationPolicy(args.first == "--login" ? .regular : .a
     // The hub
     let hubItem: [String: Any] = ["id": "w1", "category": "news", "title": "中枢的新闻", "link": "https://a.com/x", "note": "备注", "updatedAt": "2026-02-01T00:00:00Z",
                                   "createdAt": "2026-02-01T00:00:00.000Z", "rating": 4, "custom": "留着", "extra": ["source": "新华社", "topic": "政策"]]
-    var fromHub = Hub.clip(from: hubItem)
+    var fromHub = Hub.newsItem(from: hubItem)
     expect(fromHub?.kind == .link && fromHub?.status == .pending && fromHub?.title == "中枢的新闻" && fromHub?.topic == "政策" && fromHub?.titleEdited == true, "中枢新增的链接进入队列，用户的标题保留")
     expect(fromHub.map { $0.hubSig == Hub.signature($0) } == true, "刚拉下来的不会被原样推回去")
     fromHub?.topic = "投资"
@@ -125,18 +125,18 @@ NSApplication.shared.setActivationPolicy(args.first == "--login" ? .regular : .a
         expect((out["extra"] as? [String: Any])?["topic"] as? String == "投资" && out["status"] == nil, "状态不写进条目 JSON")
     }
     let shotsItem: [String: Any] = ["id": "w2", "title": "截图", "shots": ["a"], "link": ""]
-    expect(Hub.clip(from: shotsItem)?.kind == .shots && Hub.clip(from: shotsItem)?.hubImages == ["a"], "中枢里只有截图的新闻")
-    expect(Hub.clip(from: ["id": "w3", "title": "空"])?.status == .failed, "没有链接和截图的新闻标成失败")
-    expect(Hub.clip(from: ["id": "w4", "title": "内网", "link": "http://192.168.1.1/"])?.status == .failed, "中枢传来的局域网链接被拒绝")
-    expect(Hub.clip(from: ["id": "../x", "title": "坏 id"]) == nil, "不接受可能穿越路径的 id")
-    var plain = Clip(kind: .link, url: "https://a.com"); plain.title = "标题"
+    expect(Hub.newsItem(from: shotsItem)?.kind == .shots && Hub.newsItem(from: shotsItem)?.hubImages == ["a"], "中枢里只有截图的新闻")
+    expect(Hub.newsItem(from: ["id": "w3", "title": "空"])?.status == .failed, "没有链接和截图的新闻标成失败")
+    expect(Hub.newsItem(from: ["id": "w4", "title": "内网", "link": "http://192.168.1.1/"])?.status == .failed, "中枢传来的局域网链接被拒绝")
+    expect(Hub.newsItem(from: ["id": "../x", "title": "坏 id"]) == nil, "不接受可能穿越路径的 id")
+    var plain = NewsItem(kind: .link, url: "https://a.com"); plain.title = "标题"
     let fresh = Hub.item(for: plain)
     expect(fresh["category"] as? String == "news" && fresh["title"] as? String == "标题", "拾闻新增的新闻写回中枢")
     var token = ""
     do { token = try await Hub.connect("pw", deviceName: "Mac") { name, _ in name == "mc_api_version" ? 2 : ["token": "mch_x"] } } catch {}
     expect(token.isEmpty, "中枢没跑 006 时不配对")
-    do { token = try await Hub.connect("pw", deviceName: "Mac") { name, args in name == "mc_api_version" ? 3 : (args["p_app"] as? String == "clipcollections" ? ["token": "mch_x"] : nil) } } catch {}
-    expect(token == "mch_x", "用同步密码配对成 clipcollections")
+    do { token = try await Hub.connect("pw", deviceName: "Mac") { name, args in name == "mc_api_version" ? 4 : (args["p_app"] as? String == "newscollections" ? ["token": "mch_x"] : nil) } } catch {}
+    expect(token == "mch_x", "用同步密码配对成 newscollections")
 
     // Share text and Claude
     expect(LinkText.firstURL("看这个 https://xhslink.com/a/b，复制后打开") == "https://xhslink.com/a/b", "从分享文字里取出链接")
@@ -174,7 +174,7 @@ Task { @MainActor in
     if args.first == "--login", args.count == 2 { login(args[1]); return }
     if args.first == "--inspect", args.count == 2 { print(await Capturer().inspectPage(args[1])); exit(0) }
     if args.first == "--selftest" { exit(await selfTest() ? 0 : 1) }
-    guard !args.isEmpty else { print("用法：ClipProbe <链接>… | ClipProbe --login <网址>"); exit(2) }
+    guard !args.isEmpty else { print("用法：NewsProbe <链接>… | NewsProbe --login <网址>"); exit(2) }
     let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     let js = try! String(contentsOf: root.appendingPathComponent("Resources/vendor/Readability-0.6.0.js"), encoding: .utf8)
     let out = root.appendingPathComponent("probe-output")

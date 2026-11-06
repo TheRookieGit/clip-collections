@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { cleanClip, cleanPatch, cleanURL } from "./clean.ts";
+import { cleanNews, cleanPatch, cleanURL } from "./clean.ts";
 
 Deno.test("links: only public http(s)", () => {
   for (const bad of ["file:///etc/hosts", "javascript:alert(1)", "ftp://a.com/x", "http://localhost/", "http://127.0.0.1/", "http://10.0.0.1/", "http://192.168.1.1/",
@@ -32,9 +32,9 @@ Deno.test("update, delete, retry", () => {
 });
 
 Deno.test("what reaches the cloud leaves out local details", () => {
-  const r = cleanClip({ id: "a", status: "saved", title: "t", desktopFile: "/Users/x/Desktop/新闻/a.pdf", pdf: "/x", shots: ["s/a/0.jpg", "/etc/passwd"] });
+  const r = cleanNews({ id: "a", status: "saved", title: "t", desktopFile: "/Users/x/Desktop/新闻/a.pdf", pdf: "/x", shots: ["s/a/0.jpg", "/etc/passwd"] });
   assertEquals(r?.data.shots, ["s/a/0.jpg"]);
   assertEquals("desktopFile" in r!.data, false);
   assertEquals(JSON.stringify(r).includes("/Users"), false);
-  assertEquals(cleanClip({ id: "a", status: "gone" }), null);
+  assertEquals(cleanNews({ id: "a", status: "gone" }), null);
 });

@@ -1,5 +1,5 @@
 import AppKit
-import ClipCapture
+import NewsCapture
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -13,7 +13,7 @@ final class MainState {
     var hovered: String?
     var dropping = false
 
-    func shown(in model: AppModel) -> [Clip] {
+    func shown(in model: AppModel) -> [NewsItem] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         return model.visible.filter { c in
             (topic.isEmpty || c.topic == topic)
@@ -43,12 +43,12 @@ struct MainView: View {
     let detail: DetailState
 
     /// Newest day first; a day keeps its items newest first.
-    private var days: [(day: Date, clips: [Clip])] {
+    private var days: [(day: Date, newsItems: [NewsItem])] {
         let cal = Calendar.current
-        var out: [(day: Date, clips: [Clip])] = []
+        var out: [(day: Date, newsItems: [NewsItem])] = []
         for c in ui.shown(in: model) {
             let d = cal.startOfDay(for: c.createdAt)
-            if out.last?.day == d { out[out.count - 1].clips.append(c) } else { out.append((d, [c])) }
+            if out.last?.day == d { out[out.count - 1].newsItems.append(c) } else { out.append((d, [c])) }
         }
         return out
     }
@@ -146,12 +146,12 @@ struct MainView: View {
                     Text(Dates.heading(group.day)).font(Type.title(12)).kerning(1).foregroundStyle(Ink.soft)
                         .padding(.horizontal, 28).padding(.top, 18).padding(.bottom, 6)
                         .accessibilityAddTraits(.isHeader)
-                    ForEach(group.clips) { c in
-                        Row(clip: c, selected: ui.selection == c.id, hovered: ui.hovered == c.id)
+                    ForEach(group.newsItems) { c in
+                        Row(newsItem: c, selected: ui.selection == c.id, hovered: ui.hovered == c.id)
                             .contentShape(Rectangle())
                             .onTapGesture { ui.selection = c.id }
                             .onHover { ui.hovered = $0 ? c.id : (ui.hovered == c.id ? nil : ui.hovered) }
-                            .contextMenu { ClipActions(model: model, clip: c) }
+                            .contextMenu { NewsActions(model: model, newsItem: c) }
                     }
                 }
             }
@@ -161,8 +161,8 @@ struct MainView: View {
     }
 
     @ViewBuilder private var detailPane: some View {
-        if let id = ui.selection, let c = model.clip(id), !c.deleted {
-            Detail(model: model, clip: c, ui: detail).id(id)
+        if let id = ui.selection, let c = model.newsItem(id), !c.deleted {
+            Detail(model: model, newsItem: c, ui: detail).id(id)
         } else {
             VStack(spacing: 6) {
                 Text("闻").font(Type.heavy(56)).foregroundStyle(Ink.line).accessibilityHidden(true)
@@ -230,23 +230,23 @@ struct DraftTray: View {
 }
 
 struct Row: View {
-    let clip: Clip
+    let newsItem: NewsItem
     var selected: Bool
     var hovered: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(clip.displayTitle)
-                        .font(clip.title.isEmpty ? .system(size: 13) : Type.title(15))
-                        .foregroundStyle(clip.title.isEmpty ? Ink.soft : Ink.text)
+                    Text(newsItem.displayTitle)
+                        .font(newsItem.title.isEmpty ? .system(size: 13) : Type.title(15))
+                        .foregroundStyle(newsItem.title.isEmpty ? Ink.soft : Ink.text)
                         .lineLimit(2).lineSpacing(2)
-                        .truncationMode(clip.title.isEmpty ? .middle : .tail)
+                        .truncationMode(newsItem.title.isEmpty ? .middle : .tail)
                         .fixedSize(horizontal: false, vertical: true)
                     if !meta.isEmpty { Text(meta).font(.system(size: 11.5)).foregroundStyle(Ink.soft).lineLimit(1) }
                 }
                 Spacer(minLength: 0)
-                Stamp(status: clip.status).padding(.top, 2)
+                Stamp(status: newsItem.status).padding(.top, 2)
             }
             .padding(.horizontal, 16).padding(.vertical, 11)
             .background(selected ? Ink.selected : hovered ? Ink.hover : .clear)
@@ -258,40 +258,40 @@ struct Row: View {
     }
 
     private var meta: String {
-        var p = [clip.topic, clip.source].filter { !$0.isEmpty }
-        if clip.fullPage { p.append("整页版") }
-        if clip.videoMissing { p.append("视频未保存") }
+        var p = [newsItem.topic, newsItem.source].filter { !$0.isEmpty }
+        if newsItem.fullPage { p.append("整页版") }
+        if newsItem.videoMissing { p.append("视频未保存") }
         return p.joined(separator: " · ")
     }
 }
 
 @MainActor @ViewBuilder
-func clipButtons(_ model: AppModel, _ clip: Clip) -> some View {
-    if clip.status == .failed || clip.status == .incomplete || clip.fullPage { Button("重试") { model.retry(clip.id) } }
-    if clip.hasPDF {
-        Button("打开 PDF") { model.openPDF(clip) }
-        Button("在 Finder 中显示") { model.reveal(clip) }
+func newsButtons(_ model: AppModel, _ newsItem: NewsItem) -> some View {
+    if newsItem.status == .failed || newsItem.status == .incomplete || newsItem.fullPage { Button("重试") { model.retry(newsItem.id) } }
+    if newsItem.hasPDF {
+        Button("打开 PDF") { model.openPDF(newsItem) }
+        Button("在 Finder 中显示") { model.reveal(newsItem) }
     }
-    if !clip.url.isEmpty { Button("打开原链接") { model.openOriginal(clip) } }
+    if !newsItem.url.isEmpty { Button("打开原链接") { model.openOriginal(newsItem) } }
 }
 
-struct ClipActions: View {
-    let model: AppModel, clip: Clip
+struct NewsActions: View {
+    let model: AppModel, newsItem: NewsItem
     var body: some View {
-        clipButtons(model, clip)
+        newsButtons(model, newsItem)
         Divider()
-        if clip.hasPDF { Button("再导出一份到桌面") { model.exportAgain(clip.id) } }
-        Button("删除") { model.delete(clip.id) }
+        if newsItem.hasPDF { Button("再导出一份到桌面") { model.exportAgain(newsItem.id) } }
+        Button("删除") { model.delete(newsItem.id) }
     }
 }
 
 struct Detail: View {
     let model: AppModel
-    let clip: Clip
+    let newsItem: NewsItem
     @Bindable var ui: DetailState
 
-    private var changed: Bool { ui.title != clip.title || ui.topic != clip.topic || ui.note != clip.note }
-    private var failing: Bool { clip.status == .failed || clip.status == .incomplete }
+    private var changed: Bool { ui.title != newsItem.title || ui.topic != newsItem.topic || ui.note != newsItem.note }
+    private var failing: Bool { newsItem.status == .failed || newsItem.status == .incomplete }
 
     var body: some View {
         ScrollView {
@@ -299,30 +299,30 @@ struct Detail: View {
                 HStack(alignment: .center) {
                     Text(byline).font(.system(size: 12)).foregroundStyle(Ink.soft).lineLimit(1)
                     Spacer()
-                    Stamp(status: clip.status, large: true)
+                    Stamp(status: newsItem.status, large: true)
                 }
                 TextField("", text: $ui.title, prompt: Text("标题待识别").foregroundStyle(Ink.faint), axis: .vertical)
                     .textFieldStyle(.plain).font(Type.title(23)).lineSpacing(5).lineLimit(1...6)
                     .padding(.top, 14)
                     .accessibilityLabel("标题")
-                if !clip.reason.isEmpty { reason.padding(.top, 14) }
+                if !newsItem.reason.isEmpty { reason.padding(.top, 14) }
                 actions.padding(.top, 18)
                 VStack(alignment: .leading, spacing: 0) {
                     Rule()
                     field("主题") { TextField("", text: $ui.topic, prompt: Text("未分类").foregroundStyle(Ink.faint)).textFieldStyle(.plain).accessibilityLabel("主题") }
-                    if let want = clip.expectedImages, clip.kind == .link, want > 0 { field("图片") { Text("\(clip.embeddedImages ?? 0) / \(want) 张") } }
-                    if clip.kind == .shots { field("截图") { Text("\(max(clip.shotFiles.count, clip.cloudShots.count)) 张") } }
-                    if clip.videoMissing { field("视频") { Text("没有保存，只保留了封面和文字").foregroundStyle(Ink.soft) } }
-                    if let f = clip.desktopFile { field("桌面") { Text(URL(fileURLWithPath: f).lastPathComponent).lineLimit(2).textSelection(.enabled) } }
-                    if !clip.url.isEmpty { field("原文") { Text(clip.url).foregroundStyle(Ink.soft).lineLimit(2).truncationMode(.middle).textSelection(.enabled) } }
+                    if let want = newsItem.expectedImages, newsItem.kind == .link, want > 0 { field("图片") { Text("\(newsItem.embeddedImages ?? 0) / \(want) 张") } }
+                    if newsItem.kind == .shots { field("截图") { Text("\(max(newsItem.shotFiles.count, newsItem.cloudShots.count)) 张") } }
+                    if newsItem.videoMissing { field("视频") { Text("没有保存，只保留了封面和文字").foregroundStyle(Ink.soft) } }
+                    if let f = newsItem.desktopFile { field("桌面") { Text(URL(fileURLWithPath: f).lastPathComponent).lineLimit(2).textSelection(.enabled) } }
+                    if !newsItem.url.isEmpty { field("原文") { Text(newsItem.url).foregroundStyle(Ink.soft).lineLimit(2).truncationMode(.middle).textSelection(.enabled) } }
                     field("备注") { TextField("", text: $ui.note, prompt: Text("写点什么").foregroundStyle(Ink.faint), axis: .vertical).textFieldStyle(.plain).lineLimit(1...6).accessibilityLabel("备注") }
                 }
                 .padding(.top, 22)
                 if changed {
-                    Button("保存修改") { model.update(clip.id, title: ui.title, topic: ui.topic, note: ui.note) }.buttonStyle(PlainAction()).padding(.top, 14)
+                    Button("保存修改") { model.update(newsItem.id, title: ui.title, topic: ui.topic, note: ui.note) }.buttonStyle(PlainAction()).padding(.top, 14)
                 }
                 HStack(spacing: 16) {
-                    if clip.hasPDF { Button("再导出一份到桌面") { model.exportAgain(clip.id) }.buttonStyle(TextAction()) }
+                    if newsItem.hasPDF { Button("再导出一份到桌面") { model.exportAgain(newsItem.id) }.buttonStyle(TextAction()) }
                     Button("删除") { ui.confirming = true }.buttonStyle(TextAction())
                 }
                 .padding(.top, 22)
@@ -331,21 +331,21 @@ struct Detail: View {
             .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 32)
         }
         .onAppear(perform: load)
-        .onChange(of: clip.title) { load() }
-        .onChange(of: clip.topic) { load() }
+        .onChange(of: newsItem.title) { load() }
+        .onChange(of: newsItem.topic) { load() }
         .alert("删除这则新闻？", isPresented: $ui.confirming) {
-            Button("删除", role: .destructive) { model.delete(clip.id) }
+            Button("删除", role: .destructive) { model.delete(newsItem.id) }
             Button("取消", role: .cancel) {}
         } message: { Text("应用里的记录和副本会删除，桌面上的 PDF 不受影响。") }
     }
 
     private var byline: String {
-        let date = clip.publishedAt.isEmpty ? Clip.day(clip.createdAt) : clip.publishedAt
-        return [clip.source, date, clip.fullPage ? "整页打印版" : ""].filter { !$0.isEmpty }.joined(separator: " · ")
+        let date = newsItem.publishedAt.isEmpty ? NewsItem.day(newsItem.createdAt) : newsItem.publishedAt
+        return [newsItem.source, date, newsItem.fullPage ? "整页打印版" : ""].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     private var reason: some View {
-        Text(clip.reason).font(.system(size: 12.5)).lineSpacing(3).textSelection(.enabled)
+        Text(newsItem.reason).font(.system(size: 12.5)).lineSpacing(3).textSelection(.enabled)
             .foregroundStyle(failing ? Ink.text : Ink.soft)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 12).padding(.vertical, 8)
@@ -355,12 +355,12 @@ struct Detail: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            if failing || clip.fullPage { Button("重试") { model.retry(clip.id) }.buttonStyle(failing ? AnyActionStyle(SealButton()) : AnyActionStyle(PlainAction())) }
-            if clip.hasPDF {
-                Button("打开 PDF") { model.openPDF(clip) }.buttonStyle(failing ? AnyActionStyle(PlainAction()) : AnyActionStyle(SealButton()))
-                Button("在 Finder 中显示") { model.reveal(clip) }.buttonStyle(PlainAction())
+            if failing || newsItem.fullPage { Button("重试") { model.retry(newsItem.id) }.buttonStyle(failing ? AnyActionStyle(SealButton()) : AnyActionStyle(PlainAction())) }
+            if newsItem.hasPDF {
+                Button("打开 PDF") { model.openPDF(newsItem) }.buttonStyle(failing ? AnyActionStyle(PlainAction()) : AnyActionStyle(SealButton()))
+                Button("在 Finder 中显示") { model.reveal(newsItem) }.buttonStyle(PlainAction())
             }
-            if !clip.url.isEmpty { Button("打开原链接") { model.openOriginal(clip) }.buttonStyle(PlainAction()) }
+            if !newsItem.url.isEmpty { Button("打开原链接") { model.openOriginal(newsItem) }.buttonStyle(PlainAction()) }
         }
     }
 
@@ -375,7 +375,7 @@ struct Detail: View {
         }
     }
 
-    private func load() { ui.title = clip.title; ui.topic = clip.topic; ui.note = clip.note }
+    private func load() { ui.title = newsItem.title; ui.topic = newsItem.topic; ui.note = newsItem.note }
 }
 
 struct AnyActionStyle: ButtonStyle {

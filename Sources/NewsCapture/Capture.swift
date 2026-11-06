@@ -319,7 +319,7 @@ public final class Capturer: NSObject, WKNavigationDelegate {
     public func renderFixture(dir: URL) async -> CaptureResult {
         var r = CaptureResult(requested: "fixture")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        var body = "<div class=\"clip-note\">" + String(repeating: "这是一段用来检查中文排版和分页的正文。", count: 60) + "</div>"
+        var body = "<div class=\"news-note\">" + String(repeating: "这是一段用来检查中文排版和分页的正文。", count: 60) + "</div>"
         for (i, (w, h)) in [(1080, 1440), (1080, 1440), (800, 6000), (1600, 900), (1080, 1440)].enumerated() {
             let name = "fix-\(i).png"
             let img = NSImage(size: NSSize(width: w, height: h), flipped: false) { rect in

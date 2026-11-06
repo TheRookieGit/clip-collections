@@ -61,7 +61,7 @@ export function cleanPatch(p: any): Record<string, unknown> | null {
 // The fields of a news item the page may see. Anything else from the Mac is dropped, so no local path reaches the cloud.
 const STATUS = ["pending", "processing", "saved", "incomplete", "failed"];
 // deno-lint-ignore no-explicit-any
-export function cleanClip(c: any): { id: string; data: Record<string, unknown> } | null {
+export function cleanNews(c: any): { id: string; data: Record<string, unknown> } | null {
   if (typeof c !== "object" || c === null || typeof c.id !== "string" || !ID.test(c.id) || !STATUS.includes(c.status)) return null;
   const shots = Array.isArray(c.shots) ? c.shots.filter((s: unknown) => typeof s === "string" && SHOT_PATH.test(s)).slice(0, MAX_SHOTS) : [];
   return {

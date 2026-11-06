@@ -1,6 +1,6 @@
 import Foundation
 
-/// The copy on the desktop. Written once and never overwritten or removed: `Clip.exportedAt` records it, and deleting
+/// The copy on the desktop. Written once and never overwritten or removed: `NewsItem.exportedAt` records it, and deleting
 /// an item anywhere leaves the file alone.
 public enum Exporter {
     /// A safe "<date> <title>" name. A title comes from the web, so anything that could change the folder goes.

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum ClipStatus: String, Codable, CaseIterable {
+public enum NewsStatus: String, Codable, CaseIterable {
     case pending, processing, saved, incomplete, failed
     public var label: String {
         switch self {
@@ -14,12 +14,12 @@ public enum ClipStatus: String, Codable, CaseIterable {
 }
 
 /// One saved news item. The Mac holds the whole of it; the cloud sees only `cloudRow`.
-public struct Clip: Codable, Identifiable, Equatable {
+public struct NewsItem: Codable, Identifiable, Equatable {
     public enum Kind: String, Codable { case link, shots }
 
     public var id: String
     public var kind: Kind
-    public var status: ClipStatus = .pending
+    public var status: NewsStatus = .pending
     public var url = ""
     public var title = ""
     public var source = ""
@@ -63,7 +63,7 @@ public struct Clip: Codable, Identifiable, Equatable {
     /// The cloud copy of a deleted item is gone.
     public var cloudGone: Bool?
 
-    public init(id: String = Clip.newID(), kind: Kind, url: String = "", now: Date = Date()) {
+    public init(id: String = NewsItem.newID(), kind: Kind, url: String = "", now: Date = Date()) {
         self.id = id; self.kind = kind; self.url = url; createdAt = now; updatedAt = now
     }
 
@@ -89,7 +89,7 @@ public struct Clip: Codable, Identifiable, Equatable {
     public var cloudRow: [String: Any] {
         ["id": id, "kind": kind.rawValue, "status": status.rawValue, "url": url, "title": title, "source": source,
          "publishedAt": publishedAt, "topic": topic, "note": note, "reason": reason, "fullPage": fullPage,
-         "videoMissing": videoMissing, "shots": cloudShots, "createdAt": Clip.iso(createdAt), "updatedAt": Clip.iso(updatedAt)]
+         "videoMissing": videoMissing, "shots": cloudShots, "createdAt": NewsItem.iso(createdAt), "updatedAt": NewsItem.iso(updatedAt)]
     }
 }
 
@@ -98,10 +98,10 @@ public struct Paths {
     public var desktop: URL
     public init(root: URL? = nil, desktop: URL? = nil) {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        self.root = root ?? home.appendingPathComponent("Library/Application Support/ClipCollections")
+        self.root = root ?? home.appendingPathComponent("Library/Application Support/NewsCollections")
         self.desktop = desktop ?? home.appendingPathComponent("Desktop")
     }
-    public var database: URL { root.appendingPathComponent("clips.sqlite") }
+    public var database: URL { root.appendingPathComponent("news.sqlite") }
     public var secrets: URL { root.appendingPathComponent("secrets.json") }
     public var shots: URL { root.appendingPathComponent("shots") }
     public var pdfs: URL { root.appendingPathComponent("pdf") }

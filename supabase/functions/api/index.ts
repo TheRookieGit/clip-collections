@@ -1,7 +1,7 @@
 // 拾闻: one endpoint for the web page and the Mac app. Every request carries the passcode in `x-passcode`.
 // Secret (set with `supabase secrets set`): APP_PASSCODE.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
-import { cleanClip, cleanPatch, ID, MAX_SHOTS, SHOT_PATH } from "./clean.ts";
+import { cleanNews, cleanPatch, ID, MAX_SHOTS, SHOT_PATH } from "./clean.ts";
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -46,7 +46,7 @@ async function macState() {
 }
 
 async function pendingEdits() {
-  const { data, error } = await db.from("clip_edits").select("id, patch").eq("done", false).order("id").limit(200);
+  const { data, error } = await db.from("news_edits").select("id, patch").eq("done", false).order("id").limit(200);
   if (error) throw new HttpError(500, error.message);
   return data ?? [];
 }
@@ -77,23 +77,23 @@ const actions: Record<string, Handler> = {
   },
 
   // Web: every item as the Mac last reported it, the requests it has not taken in yet, and whether it is online.
-  async clips_get() {
+  async news_get() {
     const rows: unknown[] = [];
     for (let from = 0; ; from += 1000) {
-      const { data, error } = await db.from("clips").select("data").order("id").range(from, from + 999);
+      const { data, error } = await db.from("news").select("data").order("id").range(from, from + 999);
       if (error) throw new HttpError(500, error.message);
       rows.push(...(data ?? []).map((r) => r.data));
       if ((data ?? []).length < 1000) break;
     }
     const [edits, mac] = await Promise.all([pendingEdits(), macState()]);
-    return { clips: rows, pending: edits.map((e) => e.patch), mac };
+    return { newsItems: rows, pending: edits.map((e) => e.patch), mac };
   },
 
   // Web: queues a request for the Mac.
-  async clip_edit({ patch }) {
+  async news_edit({ patch }) {
     const clean = cleanPatch(patch);
     if (!clean) throw new HttpError(400, "参数不对");
-    const { error } = await db.from("clip_edits").insert({ patch: clean });
+    const { error } = await db.from("news_edits").insert({ patch: clean });
     if (error) throw new HttpError(500, error.message);
     return { ok: true, patch: clean, mac: await macState() };
   },
@@ -117,25 +117,25 @@ const actions: Record<string, Handler> = {
     return await macState();
   },
 
-  // Mac: reports items after any change. Only the fields in cleanClip are kept.
-  async clips_push({ clips }) {
-    if (!Array.isArray(clips) || clips.length > 500) throw new HttpError(400, "参数不对");
-    const rows = clips.map(cleanClip);
+  // Mac: reports items after any change. Only the fields in cleanNews are kept.
+  async news_push({ newsItems }) {
+    if (!Array.isArray(newsItems) || newsItems.length > 500) throw new HttpError(400, "参数不对");
+    const rows = newsItems.map(cleanNews);
     if (rows.some((r) => !r)) throw new HttpError(400, "参数不对");
     if (rows.length) {
       const now = new Date().toISOString();
-      const { error } = await db.from("clips").upsert(rows.map((r) => ({ id: r!.id, data: r!.data, updated_at: now })));
+      const { error } = await db.from("news").upsert(rows.map((r) => ({ id: r!.id, data: r!.data, updated_at: now })));
       if (error) throw new HttpError(500, error.message);
     }
     return { ok: true };
   },
 
   // Mac: items deleted anywhere; removes them and their screenshots from the cloud. PDFs on the Mac are not touched.
-  async clips_delete({ ids }) {
+  async news_delete({ ids }) {
     if (!Array.isArray(ids) || ids.length > 200 || !ids.every((i) => typeof i === "string" && ID.test(i))) throw new HttpError(400, "参数不对");
     for (const id of ids) await removeShots(id);
     if (ids.length) {
-      const { error } = await db.from("clips").delete().in("id", ids);
+      const { error } = await db.from("news").delete().in("id", ids);
       if (error) throw new HttpError(500, error.message);
     }
     return { ok: true };
@@ -150,7 +150,7 @@ const actions: Record<string, Handler> = {
   async edits_done({ ids }) {
     if (!Array.isArray(ids) || ids.length > 200 || !ids.every((n) => Number.isSafeInteger(n))) throw new HttpError(400, "参数不对");
     if (ids.length) {
-      const { error } = await db.from("clip_edits").update({ done: true }).in("id", ids);
+      const { error } = await db.from("news_edits").update({ done: true }).in("id", ids);
       if (error) throw new HttpError(500, error.message);
     }
     return { ok: true };
@@ -163,7 +163,7 @@ const actions: Record<string, Handler> = {
     const until = Date.now() + 45_000;
     let beaten = Date.now();
     while (!signal.aborted) {
-      const { count, error } = await db.from("clip_edits").select("id", { count: "exact", head: true }).eq("done", false);
+      const { count, error } = await db.from("news_edits").select("id", { count: "exact", head: true }).eq("done", false);
       if (error) throw new HttpError(500, error.message);
       if ((count ?? 0) > 0) return { web: true };
       if (Date.now() >= until) break;

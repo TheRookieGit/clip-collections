@@ -1,5 +1,5 @@
 import AppKit
-import ClipCapture
+import NewsCapture
 import SwiftUI
 
 /// 剪报档案: paper, ink and one vermilion. Every colour has a light (paper) and a dark (night reading) value.
@@ -31,7 +31,7 @@ enum Type {
     static func serif(_ size: CGFloat) -> Font { .custom("STSongti-SC-Regular", size: size) }
 }
 
-extension ClipStatus {
+extension NewsStatus {
     var ink: Color {
         switch self {
         case .pending: return Ink.faint
@@ -45,7 +45,7 @@ extension ClipStatus {
 
 /// The status as a seal pressed onto the page. 待保存 is only an outline waiting to be stamped; 失败 is solid ink.
 struct Stamp: View {
-    let status: ClipStatus
+    let status: NewsStatus
     var large = false
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 2)

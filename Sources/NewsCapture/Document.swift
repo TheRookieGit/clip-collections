@@ -37,10 +37,10 @@ enum Page {
         html,body{margin:0;padding:0;background:#fff;color:#1c1c1e}
         body{font:12pt/1.75 -apple-system,"PingFang SC","Hiragino Sans GB","Songti SC",sans-serif;word-break:break-word;overflow-wrap:anywhere}
         header{border-bottom:1px solid #c7c7cc;padding-bottom:10pt;margin-bottom:16pt}
-        h1.clip-title{font-size:20pt;line-height:1.35;margin:0 0 8pt;font-weight:600}
-        .clip-meta{font-size:9.5pt;line-height:1.6;color:#636366}
-        .clip-meta span{margin-right:14pt;display:inline-block}.clip-meta b{font-weight:500;color:#3a3a3c}
-        .clip-link{font-size:9pt;color:#636366;word-break:break-all;margin-top:2pt}
+        h1.news-title{font-size:20pt;line-height:1.35;margin:0 0 8pt;font-weight:600}
+        .news-meta{font-size:9.5pt;line-height:1.6;color:#636366}
+        .news-meta span{margin-right:14pt;display:inline-block}.news-meta b{font-weight:500;color:#3a3a3c}
+        .news-link{font-size:9pt;color:#636366;word-break:break-all;margin-top:2pt}
         h1,h2,h3,h4{line-height:1.4;break-after:avoid;page-break-after:avoid}
         p{margin:0 0 .9em;orphans:2;widows:2}
         figure{margin:12pt 0;break-inside:avoid;page-break-inside:avoid}
@@ -50,11 +50,11 @@ enum Page {
         table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #d1d1d6;padding:3pt 6pt}
         blockquote{margin:0 0 .9em;padding-left:10pt;border-left:2pt solid #d1d1d6;color:#3a3a3c}
         a{color:inherit;text-decoration:none}
-        .clip-note{white-space:pre-wrap}
-        .clip-notice{font-size:10pt;background:#f2f2f7;padding:6pt 8pt;margin-bottom:12pt}
+        .news-note{white-space:pre-wrap}
+        .news-notice{font-size:10pt;background:#f2f2f7;padding:6pt 8pt;margin-bottom:12pt}
         </style></head><body>
-        <header><h1 class="clip-title">\#(escapeHTML(d.title))</h1><div class="clip-meta">\#(meta)</div>
-        <div class="clip-link">\#(escapeHTML(d.link))</div></header>
+        <header><h1 class="news-title">\#(escapeHTML(d.title))</h1><div class="news-meta">\#(meta)</div>
+        <div class="news-link">\#(escapeHTML(d.link))</div></header>
         <main>\#(d.bodyHTML)</main></body></html>
         """#
     }
@@ -64,8 +64,8 @@ enum Page {
 
     static func xhsBody(_ note: XHSNote, images: [String?]) -> String {
         var html = ""
-        if note.isVideo { html += #"<div class="clip-notice">这是一条视频笔记：这里保留封面和文字，视频本身没有保存。</div>"# }
-        html += "<div class=\"clip-note\">\(escapeHTML(note.body))</div>"
+        if note.isVideo { html += #"<div class="news-notice">这是一条视频笔记：这里保留封面和文字，视频本身没有保存。</div>"# }
+        html += "<div class=\"news-note\">\(escapeHTML(note.body))</div>"
         for file in images.compactMap({ $0 }) { html += "<img src=\"\(escapeHTML(file))\" alt=\"\">" }
         return html
     }
