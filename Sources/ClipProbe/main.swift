@@ -41,6 +41,10 @@ NSApplication.shared.setActivationPolicy(args.first == "--login" ? .regular : .a
 
     expect(XHS.best(["http://sns-webpic-qc.xhscdn.com/1/abc!nd_prv_wlteh_webp_3", "http://sns-webpic-qc.xhscdn.com/1/abc!nd_dft_wlteh_webp_3"])?.contains("_dft_") == true, "dft 优先于 prv，且改成 https")
     expect(XHS.best(["https://a.xhscdn.com/x!nd_dft_1", "https://a.xhscdn.com/x!h5_1080jpg"])?.contains("h5_1080") == true, "1080 优先于 dft")
+    expect(XHS.best(["http://sns-web-i10.rednotecdn.com/1/a!nd_prv_wlteh_jpg_3", "http://sns-web-i10.rednotecdn.com/1/a!nd_dft_wlteh_jpg_3"])?.contains("_dft_") == true, "接受 rednotecdn.com 的图片")
+    expect(XHS.best(["https://evil.example/x!nd_dft_1"]) == nil, "拒绝其他域名的图片")
+    expect(XHS.isXHS(URL(string: "https://www.rednote.com/discovery/item/6aee37140000000015010160")!), "rednote.com 按小红书处理")
+    expect(XHS.failureSummary(["第 2 张：HTTP 403", "第 3 张：HTTP 403"]) == "第 2 张：HTTP 403，共 2 张失败", "图片失败原因写进说明")
     let urls = (0..<12).map { #"["http://sns-webpic-qc.xhscdn.com/1/img\#($0)!nd_dft_wlteh_webp_3"]"# }.joined(separator: ",")
     let json = #"{"id":"6a","title":"t","desc":"d","author":"a","time":1700000000000,"type":"normal","hasVideo":false,"images":[\#(urls),[]],"found":1}"#
     let note = XHS.parse(json: json)

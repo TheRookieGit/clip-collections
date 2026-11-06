@@ -22,12 +22,16 @@ public enum XHS {
         guard let h = url.host?.lowercased() else { return false }
         return h == "xiaohongshu.com" || h.hasSuffix(".xiaohongshu.com") || h == "xhslink.com" || h.hasSuffix(".xhslink.com")
             || h == "xhslink.cn" || h.hasSuffix(".xhslink.cn")
+            || h == "rednote.com" || h.hasSuffix(".rednote.com")
     }
 
     /// The note id in /explore/<id>, /discovery/item/<id>, /note/<id> and similar.
     public static func noteID(_ url: URL) -> String? {
         url.pathComponents.last { $0.range(of: #"^[0-9a-f]{24}$"#, options: .regularExpression) != nil }
     }
+
+    /// Where note images may come from. Share links now also land on rednote.com, with images on rednotecdn.com.
+    static let imageHosts = ["xhscdn.com/", "xiaohongshu.com/", "rednotecdn.com/", "rednote.com/"]
 
     /// The same order as parseShare in my-collections: 1080 first, then dft, then anything else; prv (heavily
     /// compressed previews) last.
@@ -42,10 +46,16 @@ public enum XHS {
         var out: String?
         for raw in urls {
             let u = raw.hasPrefix("//") ? "https:" + raw : raw.replacingOccurrences(of: #"^http:"#, with: "https:", options: .regularExpression)
-            guard u.hasPrefix("https://"), u.contains("xhscdn.com/") || u.contains("xiaohongshu.com/") else { continue }
+            guard u.hasPrefix("https://"), imageHosts.contains(where: u.contains) else { continue }
             if out == nil || rank(u) > rank(out!) { out = u }
         }
         return out
+    }
+
+    /// Why images went missing, short enough to show under an item. `failures` are in note order.
+    public static func failureSummary(_ failures: [String]) -> String {
+        guard let first = failures.first else { return "" }
+        return failures.count > 1 ? "\(first)，共 \(failures.count) 张失败" : first
     }
 
     /// Runs in the page's own JavaScript world, the only place __INITIAL_STATE__ exists. Walks the state instead of

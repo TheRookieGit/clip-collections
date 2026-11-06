@@ -175,6 +175,7 @@ public final class Capturer: NSObject, WKNavigationDelegate {
 
         let cookies = await Self.store.httpCookieStore.allCookies()
         var files = [String?](repeating: nil, count: note.imageURLs.count)
+        var failed: [Int: String] = [:]
         await withTaskGroup(of: (Int, Result<LocalImage, Error>).self) { g in
             for (i, u) in note.imageURLs.enumerated() {
                 g.addTask {
@@ -185,10 +186,11 @@ public final class Capturer: NSObject, WKNavigationDelegate {
             for await (i, res) in g {
                 switch res {
                 case .success(let img): files[i] = img.file.lastPathComponent
-                case .failure(let e): r.failures.append("第 \(i + 1) 张：\(e.localizedDescription)")
+                case .failure(let e): failed[i] = "第 \(i + 1) 张：\(e.localizedDescription)"
                 }
             }
         }
+        r.failures = failed.sorted { $0.key < $1.key }.map(\.value)
         r.downloadedImages = files.compactMap { $0 }.count
         let doc = CleanDocument(title: r.title, source: r.source, publishedAt: r.publishedAt, link: r.finalURL.isEmpty ? r.requested : r.finalURL,
                                 savedAt: savedAt, bodyHTML: Page.xhsBody(note, images: files))
@@ -350,6 +352,8 @@ public final class Capturer: NSObject, WKNavigationDelegate {
         if inPDF < want {
             r.status = .incomplete
             r.reason = "图片不全：\(what)有 \(want) 张，PDF 里只有 \(inPDF) 张"
+            let why = XHS.failureSummary(r.failures)
+            if !why.isEmpty { r.reason += "（\(why)）" }
         } else { r.status = .saved }
         if r.isVideo { r.reason = [r.reason, "视频没有保存，只保留了封面和文字"].filter { !$0.isEmpty }.joined(separator: "；") }
     }
