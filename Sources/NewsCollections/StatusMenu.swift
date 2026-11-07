@@ -16,8 +16,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
-        item.button?.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "拾闻")
-        item.button?.toolTip = "拾闻"
+        item.button?.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "News Collections")
+        item.button?.toolTip = "News Collections"
         if !UserDefaults.standard.bool(forKey: "loginItemDefaulted") {
             UserDefaults.standard.set(true, forKey: "loginItemDefaulted")
             try? SMAppService.mainApp.register()
@@ -31,7 +31,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
             e.isEnabled = false
             menu.addItem(e)
         }
-        menu.addItem(action("打开拾闻", #selector(openWindow)))
+        menu.addItem(action("打开 News Collections", #selector(openWindow)))
         menu.addItem(action("保存剪贴板内容", #selector(saveClipboard)))
         menu.addItem(.separator())
         let active = model.visible.filter { $0.status == .pending || $0.status == .processing }.count
@@ -50,7 +50,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "退出拾闻", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "退出 News Collections", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
     }
 
     private func action(_ title: String, _ s: Selector) -> NSMenuItem {

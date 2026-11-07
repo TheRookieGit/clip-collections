@@ -19,13 +19,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let atLogin = launch?.eventID == kAEOpenApplication
             && launch?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
         do { model = try AppModel() } catch {
-            let a = NSAlert(); a.messageText = "拾闻打不开数据：\(error.localizedDescription)"; a.runModal()
+            let a = NSAlert(); a.messageText = "News Collections 打不开数据：\(error.localizedDescription)"; a.runModal()
             NSApp.terminate(nil)
             return
         }
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 680),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
-        window.title = "拾闻"
+        window.title = "News Collections"
         // The paper runs up under the traffic lights; the masthead carries the name.
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
@@ -155,8 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func quitFromMenu(_ sender: Any?) {
         if NSApp.currentEvent?.type == .keyDown {
             let a = NSAlert()
-            a.messageText = "要退出拾闻吗？"
-            a.informativeText = "退出后，网页版保存的新闻要等下次打开才会处理。只想收起窗口的话，可以关闭窗口（⌘W），拾闻会继续在菜单栏运行。"
+            a.messageText = "要退出 News Collections 吗？"
+            a.informativeText = "退出后，网页版保存的新闻要等下次打开才会处理。只想收起窗口的话，可以关闭窗口（⌘W），News Collections 会继续在菜单栏运行。"
             a.addButton(withTitle: "退出")
             a.addButton(withTitle: "取消").keyEquivalent = "\u{1b}"
             NSApp.activate()
@@ -168,17 +168,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func buildMenu() -> NSMenu {
         let main = NSMenu()
         let app = NSMenu()
-        app.addItem(withTitle: "关于拾闻", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(withTitle: "关于 News Collections", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         app.addItem(.separator())
         let prefs = NSMenuItem(title: "设置…", action: #selector(openSettings), keyEquivalent: ",")
         prefs.target = self
         app.addItem(prefs)
         app.addItem(.separator())
-        app.addItem(withTitle: "隐藏拾闻", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        let quit = NSMenuItem(title: "退出拾闻", action: #selector(quitFromMenu(_:)), keyEquivalent: "q")
+        app.addItem(withTitle: "隐藏 News Collections", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let quit = NSMenuItem(title: "退出 News Collections", action: #selector(quitFromMenu(_:)), keyEquivalent: "q")
         quit.target = self
         app.addItem(quit)
-        main.addItem(withTitle: "拾闻", action: nil, keyEquivalent: "").submenu = app
+        main.addItem(withTitle: "News Collections", action: nil, keyEquivalent: "").submenu = app
         let edit = NSMenu(title: "编辑")
         edit.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
         edit.addItem(withTitle: "重做", action: Selector(("redo:")), keyEquivalent: "Z")

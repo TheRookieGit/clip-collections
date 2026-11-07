@@ -27,7 +27,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key><string>$NAME</string>
-    <key>CFBundleDisplayName</key><string>拾闻</string>
+    <key>CFBundleDisplayName</key><string>News Collections</string>
     <key>CFBundleIdentifier</key><string>com.therookiegit.NewsCollections</string>
     <key>CFBundleExecutable</key><string>$NAME</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>

@@ -131,7 +131,7 @@ NSApplication.shared.setActivationPolicy(args.first == "--login" ? .regular : .a
     expect(Hub.newsItem(from: ["id": "../x", "title": "坏 id"]) == nil, "不接受可能穿越路径的 id")
     var plain = NewsItem(kind: .link, url: "https://a.com"); plain.title = "标题"
     let fresh = Hub.item(for: plain)
-    expect(fresh["category"] as? String == "news" && fresh["title"] as? String == "标题", "拾闻新增的新闻写回中枢")
+    expect(fresh["category"] as? String == "news" && fresh["title"] as? String == "标题", "News Collections 新增的新闻写回中枢")
     var token = ""
     do { token = try await Hub.connect("pw", deviceName: "Mac") { name, _ in name == "mc_api_version" ? 2 : ["token": "mch_x"] } } catch {}
     expect(token.isEmpty, "中枢没跑 006 时不配对")

@@ -85,7 +85,7 @@ struct MainView: View {
     private var masthead: some View {
         VStack(spacing: 8) {
             HStack(alignment: .lastTextBaseline, spacing: 12) {
-                Text("拾闻").font(Type.heavy(34)).kerning(4)
+                Text("News Collections").font(Type.heavy(34)).lineLimit(1).fixedSize()
                 Spacer()
                 Text(Dates.masthead()).font(Type.serif(13))
                 Text("共 \(model.visible.count) 则").font(Type.serif(13)).foregroundStyle(Ink.soft)

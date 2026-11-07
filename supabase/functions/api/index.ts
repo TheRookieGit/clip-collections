@@ -1,4 +1,4 @@
-// 拾闻: one endpoint for the web page and the Mac app. Every request carries the passcode in `x-passcode`.
+// News Collections: one endpoint for the web page and the Mac app. Every request carries the passcode in `x-passcode`.
 // Secret (set with `supabase secrets set`): APP_PASSCODE.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { cleanNews, cleanPatch, ID, MAX_SHOTS, SHOT_PATH } from "./clean.ts";

@@ -1,4 +1,4 @@
-# 拾闻 / news-collections
+# News Collections
 
 把感兴趣的新闻存成 PDF。来源是链接或截图，PDF 直接放在这台 Mac 的桌面。
 
@@ -40,9 +40,9 @@ supabase functions deploy api --no-verify-jwt
 
 ## 接入心愿中枢
 
-在设置里用同步密码或配对码连接后，拾闻和中枢的「新闻」分类双向同步：
+在设置里用同步密码或配对码连接后，News Collections 和中枢的「新闻」分类双向同步：
 
-- 中枢新增的新闻进入拾闻的队列，拾闻新增的新闻写回中枢，两边用同一个 id。
+- 中枢新增的新闻进入 News Collections 的队列，News Collections 新增的新闻写回中枢，两边用同一个 id。
 - PDF 生成成功后通过 `mc_fulfill_put` 回报，中枢显示「已保存」。状态不写进条目 JSON。
 - 两边同时改同一条时，中枢的改动优先。
 - 需要 my-collections 的迁移 `009_newscollections.sql`。
