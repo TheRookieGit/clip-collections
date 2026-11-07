@@ -38,7 +38,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         let attention = model.visible.filter { $0.status == .failed || $0.status == .incomplete }.count
         info(active > 0 ? "处理中 \(active) 条" : "没有待处理的新闻")
         if attention > 0 { info("需要处理 \(attention) 条") }
-        for c in model.visible.prefix(5) { info("\(c.status.label)　\(c.displayTitle.prefix(26))") }
+        for c in model.visible.filter({ $0.status != .saved }).prefix(5) { info("\(c.status.label)　\(c.displayTitle.prefix(26))") }
         menu.addItem(.separator())
         if !model.cloud.configured { info("云端：未设置") }
         else if let e = model.cloudError { info("云端出错：\(e.prefix(40))") }
