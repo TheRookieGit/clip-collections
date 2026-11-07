@@ -8,6 +8,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     private let model: AppModel
     private let showWindow: () -> Void
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private var hub: MenuHubClient?
 
     init(model: AppModel, showWindow: @escaping () -> Void) {
         self.model = model
@@ -18,6 +19,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         item.menu = menu
         item.button?.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "News Collections")
         item.button?.toolTip = "News Collections"
+        hub = MenuHubClient(item: item, source: self)
         if !UserDefaults.standard.bool(forKey: "loginItemDefaulted") {
             UserDefaults.standard.set(true, forKey: "loginItemDefaulted")
             try? SMAppService.mainApp.register()
@@ -66,6 +68,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         model.pasteClipboard(direct: true)
         if let n = model.notice {
             model.notice = nil
+            NSApp.activate() // picked from My Collections' menu, this app is in the background
             let a = NSAlert(); a.messageText = n; a.runModal()
         }
     }
